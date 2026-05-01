@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Natural Selection Simulation — AP Psychology</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:14px;background:#f5f4f0;color:#1a1a18;padding:1.5rem}
+h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
+.top-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:1.25rem;padding:1rem 1.25rem;background:#fff;border-radius:10px;border:0.5px solid #d3d1c7}
+.gen-badge{font-size:24px;font-weight:500;min-width:80px}
+.gen-label{font-size:11px;color:#888;margin-top:2px}
+.env-label{font-size:11px;color:#888;margin-bottom:3px}
+.env-name{font-size:14px;font-weight:500}
+select{font-size:13px;padding:6px 10px;border:0.5px solid #b4b2a9;border-radius:8px;background:#fff;cursor:pointer}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+button{font-size:13px;padding:6px 14px;border:0.5px solid #b4b2a9;border-radius:8px;background:#fff;cursor:pointer;transition:background .15s}
+button:hover{background:#f1efe8}
+button.active{background:#e6f1fb;border-color:#85b7eb;color:#185fa5}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:700px){.charts-row{grid-template-columns:1fr}}
+.panel{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:1.25rem}
+.panel-title{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.875rem}
+.trait-block{margin-bottom:14px}
+.trait-block:last-child{margin-bottom:0}
+.trait-name{font-size:12px;font-weight:500;color:#5f5e5a;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.neutral-tag{font-size:10px;font-weight:400;color:#888;text-transform:none;letter-spacing:0;padding:1px 6px;background:#f1efe8;border-radius:4px}
+.bar-wrap{height:24px;border-radius:4px;overflow:hidden;background:#f1efe8;border:0.5px solid #d3d1c7;display:flex}
+.bar-seg{height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;overflow:hidden;white-space:nowrap;padding:0 4px}
+.bar-legend{display:flex;gap:10px;margin-top:5px;flex-wrap:wrap}
+.bl-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#5f5e5a}
+.bl-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.custom-panel{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:1.25rem;margin-bottom:1rem;display:none}
+.custom-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.custom-grid{grid-template-columns:1fr}}
+.custom-row{display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap}
+.custom-row span{font-weight:500;min-width:120px}
+.custom-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.annotation{background:#fff;border-radius:10px;border:0.5px solid #d3d1c7;padding:1rem 1.25rem;border-left:3px solid #378ADD;font-size:13px;line-height:1.65}
+.legend-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#5f5e5a}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<h1>Natural Selection Simulation — AP Psychology</h1>
+
+<div class="top-bar">
+  <div>
+    <div class="gen-badge" id="genNum">Gen 0</div>
+    <div class="gen-label">generation</div>
+  </div>
+  <div>
+    <div class="env-label">environment</div>
+    <div class="env-name" id="envName">Predator-rich savanna</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <div class="env-label">select environment</div>
+    <select id="envSelect">
+      <option value="0">Predator-rich savanna</option>
+      <option value="1">Isolated island (low threat)</option>
+      <option value="2">Famine / resource scarcity</option>
+      <option value="3">Stable social group (tribal)</option>
+      <option value="4">Custom</option>
+    </select>
+  </div>
+  <div class="btn-row">
+    <button id="btnNext">Next generation</button>
+    <button id="btnAuto">Auto-run</button>
+    <button id="btnReset">Reset</button>
+  </div>
+</div>
+
+<div id="customPanel" class="custom-panel">
+  <div class="panel-title">custom environment — set selection pressure per trait</div>
+  <div class="custom-grid" id="customGrid"></div>
+</div>
+
+<div class="charts-row">
+  <div class="panel">
+    <div class="panel-title">current generation — trait distribution</div>
+    <div id="barCharts"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">adaptive variant % over generations</div>
+    <div style="position:relative;width:100%;height:280px">
+      <canvas id="lineChart" role="img" aria-label="Line chart showing adaptive variant percentages across generations for all four traits.">Adaptive variant percentages across generations for fear response, altruism, mating preferences, and verbal ability.</canvas>
+    </div>
+    <div class="legend-row" id="lineLegend"></div>
+  </div>
+</div>
+
+<div class="annotation" id="annotation"></div>
+
+<script>
+const TRAITS = [
+  { name: 'Fear response',       v0: 'High reactivity', v1: 'Low reactivity'   },
+  { name: 'Altruism',            v0: 'Prosocial',        v1: 'Selfish'          },
+  { name: 'Mating preferences',  v0: 'Selective',        v1: 'Indiscriminate'   },
+  { name: 'Verbal ability',      v0: 'High verbal',      v1: 'Low verbal'       }
+];
+
+// pressure values: 0 = v0 adaptive, 1 = v1 adaptive, 2 = neutral
+const ENVS = [
+  { name: 'Predator-rich savanna',        pressure: [0, 0, 0, 0] },
+  { name: 'Isolated island (low threat)', pressure: [1, 1, 1, 2] }, // verbal neutral
+  { name: 'Famine / resource scarcity',   pressure: [0, 1, 0, 0] },
+  { name: 'Stable social group (tribal)', pressure: [1, 0, 0, 0] }
+];
+
+const COLORS       = ['#378ADD','#1D9E75','#D85A30','#BA7517'];
+const COLORS_LIGHT = ['#B5D4F4','#9FE1CB','#F5C4B3','#FAC775'];
+const NEUTRAL_DARK = '#888780';
+const NEUTRAL_LT   = '#D3D1C7';
+
+let customPressure = [0, 0, 0, 0];
+
+// Build custom panel
+(function(){
+  const grid = document.getElementById('customGrid');
+  TRAITS.forEach((tr, t) => {
+    const row = document.createElement('div');
+    row.className = 'custom-row';
+    row.innerHTML = `<span>${tr.name}:</span>
+      <label><input type="radio" name="ct${t}" value="0" checked> ${tr.v0} adaptive</label>
+      <label><input type="radio" name="ct${t}" value="1"> ${tr.v1} adaptive</label>
+      <label><input type="radio" name="ct${t}" value="2"> Neutral</label>`;
+    row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      customPressure[t] = parseInt(inp.value);
+      buildBarCharts(); buildAnnotation();
+    }));
+    grid.appendChild(row);
+  });
+})();
+
+let pop = [], gen = 0, history = [], autoTimer = null, autoOn = false;
+
+function randPop() {
+  pop = [];
+  for (let i = 0; i < 100; i++) pop.push([0,1,2,3].map(() => Math.random() < 0.5 ? 0 : 1));
+}
+
+function getPressure() {
+  const sel = parseInt(document.getElementById('envSelect').value);
+  return sel < 4 ? [...ENVS[sel].pressure] : [...customPressure];
+}
+
+function getEnvName() {
+  const sel = parseInt(document.getElementById('envSelect').value);
+  return sel < 4 ? ENVS[sel].name : 'Custom environment';
+}
+
+function fitness(ind, pressure) {
+  let f = 1.0;
+  for (let t = 0; t < 4; t++) {
+    if (pressure[t] === 2) continue;
+    f += (ind[t] === pressure[t]) ? 0.4 : -0.2;
+  }
+  return Math.max(f, 0.01);
+}
+
+function nextGen() {
+  const pressure = getPressure();
+  const fits = pop.map(ind => fitness(ind, pressure));
+  const total = fits.reduce((a,b) => a+b, 0);
+  let cumul = [], s = 0;
+  fits.forEach(f => { s += f/total; cumul.push(s); });
+  let newPop = [];
+  for (let i = 0; i < 100; i++) {
+    const r = Math.random();
+    let idx = cumul.findIndex(c => r <= c);
+    if (idx < 0) idx = 99;
+    let child = [...pop[idx]];
+    for (let t = 0; t < 4; t++) if (Math.random() < 0.02) child[t] = 1 - child[t];
+    newPop.push(child);
+  }
+  pop = newPop;
+  gen++;
+  recordHistory();
+  render();
+}
+
+function traitDist() {
+  let d = [0,0,0,0];
+  pop.forEach(ind => { for (let t=0;t<4;t++) if (ind[t]===0) d[t]++; });
+  return d;
+}
+
+function recordHistory() {
+  const pressure = getPressure();
+  const dist = traitDist();
+  let rec = { env: getEnvName() };
+  for (let t = 0; t < 4; t++) {
+    if (pressure[t] === 2) { rec[t] = null; continue; }
+    rec[t] = pressure[t] === 0 ? dist[t] : (100 - dist[t]);
+  }
+  history.push(rec);
+}
+
+function buildBarCharts() {
+  const pressure = getPressure();
+  const dist = traitDist();
+  let html = '';
+  for (let t = 0; t < 4; t++) {
+    const p = pressure[t], pct0 = dist[t], pct1 = 100 - dist[t];
+    if (p === 2) {
+      html += `<div class="trait-block">
+        <div class="trait-name">${TRAITS[t].name} <span class="neutral-tag">neutral in this environment</span></div>
+        <div class="bar-wrap">
+          <div class="bar-seg" style="width:${pct0}%;background:${NEUTRAL_DARK};color:#fff">${pct0>12?pct0+'%':''}</div>
+          <div class="bar-seg" style="width:${pct1}%;background:${NEUTRAL_LT};color:#333">${pct1>12?pct1+'%':''}</div>
+        </div>
+        <div class="bar-legend">
+          <span class="bl-item"><span class="bl-dot" style="background:${NEUTRAL_DARK}"></span>${TRAITS[t].v0} ${pct0}%</span>
+          <span class="bl-item"><span class="bl-dot" style="background:${NEUTRAL_LT}"></span>${TRAITS[t].v1} ${pct1}%</span>
+        </div>
+      </div>`;
+    } else {
+      const adaptPct = p===0 ? pct0 : pct1;
+      const maladPct = p===0 ? pct1 : pct0;
+      const adaptName = p===0 ? TRAITS[t].v0 : TRAITS[t].v1;
+      const maladName = p===0 ? TRAITS[t].v1 : TRAITS[t].v0;
+      html += `<div class="trait-block">
+        <div class="trait-name">${TRAITS[t].name}</div>
+        <div class="bar-wrap">
+          <div class="bar-seg" style="width:${adaptPct}%;background:${COLORS[t]};color:#fff">${adaptPct>12?adaptPct+'%':''}</div>
+          <div class="bar-seg" style="width:${maladPct}%;background:${COLORS_LIGHT[t]};color:#333">${maladPct>12?maladPct+'%':''}</div>
+        </div>
+        <div class="bar-legend">
+          <span class="bl-item"><span class="bl-dot" style="background:${COLORS[t]}"></span>${adaptName} (adaptive) ${adaptPct}%</span>
+          <span class="bl-item"><span class="bl-dot" style="background:${COLORS_LIGHT[t]}"></span>${maladName} ${maladPct}%</span>
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('barCharts').innerHTML = html;
+}
+
+let lineChart = null;
+function buildLineChart() {
+  const labels = history.map((_,i) => 'Gen '+i);
+  const datasets = TRAITS.map((tr, t) => ({
+    label: tr.name,
+    data: history.map(h => h[t]),
+    borderColor: COLORS[t],
+    backgroundColor: COLORS[t]+'22',
+    borderWidth: 2,
+    pointRadius: history.length > 12 ? 2 : 4,
+    tension: 0.3,
+    fill: false,
+    spanGaps: false
+  }));
+
+  if (lineChart) {
+    lineChart.data.labels = labels;
+    lineChart.data.datasets.forEach((ds,i) => ds.data = datasets[i].data);
+    lineChart.update('active');
+  } else {
+    lineChart = new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ctx.parsed.y === null ? ctx.dataset.label+': neutral (no data)' : ctx.dataset.label+': '+ctx.parsed.y+'%' } }
+        },
+        scales: {
+          y: { min: 0, max: 100, title: { display: true, text: '% carrying adaptive variant', font:{size:11} }, ticks: { callback: v => v+'%', font:{size:11} } },
+          x: { ticks: { font:{size:11}, autoSkip:true, maxTicksLimit:10 } }
+        }
+      }
+    });
+    const leg = document.getElementById('lineLegend');
+    leg.innerHTML = TRAITS.map((tr,t) => `<span class="leg-item"><span class="leg-dot" style="background:${COLORS[t]}"></span>${tr.name}</span>`).join('');
+  }
+}
+
+function buildAnnotation() {
+  const pressure = getPressure();
+  const dist = traitDist();
+  const envName = getEnvName();
+  if (gen === 0) {
+    document.getElementById('annotation').textContent = 'Generation 0: the population begins with roughly equal numbers of each trait variant. No selection has occurred yet — this is the baseline from which evolution will unfold.';
+    return;
+  }
+  let rising = [], falling = [], neutral = [];
+  for (let t = 0; t < 4; t++) {
+    if (pressure[t] === 2) { neutral.push(TRAITS[t].name.toLowerCase()); continue; }
+    const adaptPct = pressure[t] === 0 ? dist[t] : (100 - dist[t]);
+    if (adaptPct > 65) rising.push(TRAITS[t].name.toLowerCase());
+    else if (adaptPct < 35) falling.push(TRAITS[t].name.toLowerCase());
+  }
+  let msg = `Generation ${gen} — ${envName}. `;
+  if (rising.length) msg += `${rising.map(s=>s[0].toUpperCase()+s.slice(1)).join(' and ')} ${rising.length>1?'are':'is'} spreading as the adaptive variant gains frequency. `;
+  if (falling.length) msg += `${falling.map(s=>s[0].toUpperCase()+s.slice(1)).join(' and ')} ${falling.length>1?'show':'shows'} the maladaptive variant declining under selection pressure. `;
+  if (neutral.length) msg += `${neutral.map(s=>s[0].toUpperCase()+s.slice(1)).join(' and ')} ${neutral.length>1?'are':'is'} neutral here — both variants drift randomly with no directional pressure. `;
+  if (!rising.length && !falling.length && !neutral.length) msg += 'Selection is actively shifting trait frequencies — watch the line graph for emerging trends.';
+  document.getElementById('annotation').textContent = msg.trim();
+}
+
+function render() {
+  document.getElementById('genNum').textContent = 'Gen '+gen;
+  document.getElementById('envName').textContent = getEnvName();
+  buildBarCharts();
+  buildLineChart();
+  buildAnnotation();
+}
+
+function init() {
+  if (lineChart) { lineChart.destroy(); lineChart = null; }
+  gen = 0; history = [];
+  randPop();
+  recordHistory();
+  render();
+}
+
+document.getElementById('btnNext').addEventListener('click', nextGen);
+document.getElementById('btnAuto').addEventListener('click', function() {
+  autoOn = !autoOn;
+  this.classList.toggle('active', autoOn);
+  this.textContent = autoOn ? 'Stop auto-run' : 'Auto-run';
+  if (autoOn) {
+    autoTimer = setInterval(() => {
+      if (gen >= 20) {
+        clearInterval(autoTimer); autoOn = false;
+        document.getElementById('btnAuto').classList.remove('active');
+        document.getElementById('btnAuto').textContent = 'Auto-run';
+        return;
+      }
+      nextGen();
+    }, 1500);
+  } else { clearInterval(autoTimer); }
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  clearInterval(autoTimer); autoOn = false;
+  document.getElementById('btnAuto').classList.remove('active');
+  document.getElementById('btnAuto').textContent = 'Auto-run';
+  init();
+});
+document.getElementById('envSelect').addEventListener('change', function() {
+  document.getElementById('customPanel').style.display = this.value==='4' ? 'block' : 'none';
+  document.getElementById('envName').textContent = getEnvName();
+  buildBarCharts(); buildAnnotation();
+});
+
+init();
+</script>
+</body>
+</html>
