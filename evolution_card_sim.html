@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evolutionary Ancestry Card Simulation</title>
+<style>
+:root {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f5f5f3;
+  --color-background-tertiary: #ebebea;
+  --color-background-info: #e6f1fb;
+  --color-text-primary: #1a1a18;
+  --color-text-secondary: #5f5e5a;
+  --color-text-tertiary: #888780;
+  --color-text-info: #185fa5;
+  --color-border-tertiary: rgba(0,0,0,0.12);
+  --color-border-secondary: rgba(0,0,0,0.22);
+  --color-border-info: #378add;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background-primary: #1e1e1c;
+    --color-background-secondary: #2a2a28;
+    --color-background-tertiary: #333330;
+    --color-background-info: #0c2e4a;
+    --color-text-primary: #e8e8e4;
+    --color-text-secondary: #a0a09a;
+    --color-text-tertiary: #6a6a64;
+    --color-text-info: #85b7eb;
+    --color-border-tertiary: rgba(255,255,255,0.1);
+    --color-border-secondary: rgba(255,255,255,0.2);
+    --color-border-info: #378add;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background-tertiary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+#sim {
+  max-width: 680px;
+  width: 100%;
+  padding: 1.5rem 0 2rem;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.gen-display {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.gen-display strong {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.card-stage {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  perspective: 1000px;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  user-select: none;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
+.card-icon { font-size: 72px; line-height: 1; margin-bottom: 1rem; }
+
+.card-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.card-era {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.card-cousin {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.card-fact {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 420px;
+  margin-top: 0.75rem;
+}
+
+.card-number {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.card-tap-hint {
+  position: absolute;
+  bottom: 14px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.stack-shadow {
+  position: absolute;
+  bottom: -4px; left: 4px; right: 4px;
+  height: 100%;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  z-index: -1;
+  background: var(--color-background-secondary);
+}
+
+.stack-shadow2 {
+  position: absolute;
+  bottom: -8px; left: 8px; right: 8px;
+  height: 100%;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  z-index: -2;
+  background: var(--color-background-tertiary);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover { background: var(--color-background-secondary); }
+.btn:active { transform: scale(0.98); }
+
+.btn.primary {
+  background: var(--color-background-info);
+  border-color: var(--color-border-info);
+  color: var(--color-text-info);
+}
+
+.timeline { width: 100%; margin-bottom: 1.5rem; }
+
+.tl-bar-wrap {
+  position: relative;
+  height: 8px;
+  background: var(--color-background-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.tl-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: #378ADD;
+  transition: width 0.4s ease;
+}
+
+.tl-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.milestone-dots {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.m-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  background: var(--color-background-primary);
+  transition: background 0.1s;
+  font-family: var(--font-sans);
+}
+
+.m-dot:hover { background: var(--color-background-secondary); }
+.m-dot.active { border-color: #378ADD; color: var(--color-text-info); }
+.m-dot .dot-icon { font-size: 14px; }
+
+.info-strip {
+  padding: 0.75rem 1rem;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.info-strip .highlight {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div id="sim">
+
+<p class="page-title">the deck of life</p>
+<p class="page-subtitle">Each card is one step back in your family tree. Flip to reveal a fact, then advance to the next generation. Keep going long enough, and every living thing becomes your distant cousin.</p>
+
+<div class="top-bar">
+  <div class="gen-display">
+    Generation <strong id="gen-num">0</strong> back &nbsp;|&nbsp;
+    <span id="time-ago">now</span>
+  </div>
+  <div style="font-size: 12px; color: var(--color-text-tertiary);" id="card-index">card 1 of 19</div>
+</div>
+
+<div class="card-stage" id="cardStage" onclick="flipCard()">
+  <div class="stack-shadow2"></div>
+  <div class="stack-shadow"></div>
+  <div class="card-inner" id="cardInner">
+    <div class="card-face card-front" id="frontFace">
+      <div class="card-number" id="frontNum"></div>
+      <div class="card-icon" id="frontIcon"></div>
+      <div class="card-title" id="frontTitle"></div>
+      <div class="card-era" id="frontEra"></div>
+      <div class="card-cousin" id="frontCousin"></div>
+      <div class="card-tap-hint">tap to reveal</div>
+    </div>
+    <div class="card-face card-back" id="backFace">
+      <div class="card-icon" id="backIcon"></div>
+      <div class="card-title" id="backTitle"></div>
+      <div class="card-fact" id="backFact"></div>
+      <div class="card-tap-hint">tap to continue</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" onclick="prevCard()">&#8592; previous</button>
+  <button class="btn primary" onclick="nextCard()" id="nextBtn">next card &#8594;</button>
+  <button class="btn" onclick="resetDeck()">restart</button>
+</div>
+
+<div class="timeline">
+  <div class="tl-bar-wrap">
+    <div class="tl-fill" id="tlFill" style="width: 0%"></div>
+  </div>
+  <div class="tl-labels">
+    <span>you (now)</span>
+    <span>&#8592; flip back through time</span>
+    <span>3.8 billion years ago</span>
+  </div>
+</div>
+
+<div class="milestone-dots" id="milestoneDots"></div>
+
+<div class="info-strip" id="infoStrip">
+  Each card is one generation back in your family tree. Your father, then his father, and so on. Keep going — eventually every living thing becomes your distant cousin.
+</div>
+
+</div>
+
+<script>
+const CARDS = [
+  {
+    gen: 0,
+    timeAgo: "now",
+    icon: "🧍",
+    title: "you",
+    era: "present day",
+    cousin: "this is you",
+    fact: "You are the latest branch on a family tree that stretches back 3.8 billion years. Every living thing on Earth shares ancestry with you.",
+    info: "You have exactly 2 biological parents, 4 grandparents, 8 great-grandparents... and so on. The number of ancestors doubles every generation back."
+  },
+  {
+    gen: 1,
+    timeAgo: "~30 years ago",
+    icon: "👨",
+    title: "your father",
+    era: "~1 generation back",
+    cousin: "direct ancestor",
+    fact: "Half of your DNA came from him. The other half from your mother, whose lineage runs in parallel — just as ancient.",
+    info: "One generation = roughly 25–30 years in modern humans. Historically, generations were shorter — about 25 years for most of human history."
+  },
+  {
+    gen: 4,
+    timeAgo: "~100 years ago",
+    icon: "👴",
+    title: "great-great-grandfather",
+    era: "~4 generations back",
+    cousin: "direct ancestor",
+    fact: "You carry about 6% of his DNA. You have 16 great-great-grandparents. By now, some of your ancestral lines may have been separated by oceans.",
+    info: "At 4 generations back, you likely have 16 distinct ancestors — but due to historical inbreeding in isolated populations, some lines may converge."
+  },
+  {
+    gen: 10,
+    timeAgo: "~250 years ago",
+    icon: "🏚️",
+    title: "10th-great-grandfather",
+    era: "~10 generations back",
+    cousin: "direct ancestor",
+    fact: "Roughly 1750 CE. You have 1,024 ancestors at this generation — though genetic contribution from any one of them is statistically tiny.",
+    info: "By 10 generations, some of your ancestral lines disappear from your DNA entirely due to random inheritance — yet those people still lived."
+  },
+  {
+    gen: 100,
+    timeAgo: "~2,500 years ago",
+    icon: "🏛️",
+    title: "100th-great-grandfather",
+    era: "~100 generations back",
+    cousin: "direct ancestor",
+    fact: "The ancient world: Greece, Rome, Han Dynasty China. Theoretically 2^100 ancestors — but the entire human population was far smaller. Most are your relatives many times over.",
+    info: "The 'identical ancestors point': all humans alive today share ALL of the same ancestors from roughly 3,000 years ago. Everyone alive then who has living descendants is everyone's ancestor."
+  },
+  {
+    gen: 500,
+    timeAgo: "~12,500 years ago",
+    icon: "🪨",
+    title: "500th-great-grandfather",
+    era: "~500 generations back",
+    cousin: "direct ancestor",
+    fact: "The dawn of agriculture. Your ancestors were likely hunter-gatherers. Homo sapiens has been anatomically modern for 200,000+ years.",
+    info: "At this point your ancestors are still fully modern humans — same brain, same body, same capacity for language and culture as you."
+  },
+  {
+    gen: 7000,
+    timeAgo: "~200,000 years ago",
+    icon: "🗿",
+    title: "earliest Homo sapiens",
+    era: "~7,000 generations back",
+    cousin: "direct ancestor",
+    fact: "The first anatomically modern humans appeared in Africa around 300,000 years ago. Your lineage traces to this founding population.",
+    info: "~7,000 generations at 28 years/generation = ~196,000 years. Every human alive today descends from a small African population."
+  },
+  {
+    gen: 10000,
+    timeAgo: "~300,000 years ago",
+    icon: "🦴",
+    title: "Homo heidelbergensis",
+    era: "~10,000 generations back",
+    cousin: "direct ancestor or close relative",
+    fact: "The likely ancestor of both Homo sapiens and Neanderthals. They made tools, hunted large animals, and may have used fire and shelter systematically.",
+    info: "Generation estimate: 300,000 ÷ 30 ≈ 10,000 generations. You are their direct descendant."
+  },
+  {
+    gen: 50000,
+    timeAgo: "~1.5 million years ago",
+    icon: "🧱",
+    title: "Homo erectus",
+    era: "~50,000 generations back",
+    cousin: "direct ancestor",
+    fact: "First hominin to leave Africa, spreading across Asia and Europe. Made sophisticated hand axes and may have used fire. Brain volume approaching ours.",
+    info: "~1.5 million years ÷ 30 years/generation ≈ 50,000 generations back. Still directly in your family line."
+  },
+  {
+    gen: 130000,
+    timeAgo: "~3.5–4 million years ago",
+    icon: "🦶",
+    title: "Australopithecus",
+    era: "~130,000 generations back",
+    cousin: "direct ancestor",
+    fact: "Lucy's species (A. afarensis). Walked upright on two legs but had a chimp-sized brain (~450 cc vs. our ~1,400 cc). The transition from trees to grassland.",
+    info: "~3.9 million years ÷ 30 years/generation ≈ 130,000 generations. Still a direct ancestor — you literally descended from these individuals."
+  },
+  {
+    gen: 250000,
+    timeAgo: "~6–7 million years ago",
+    icon: "🐒",
+    title: "common ancestor with chimpanzees",
+    era: "~250,000 generations back",
+    cousin: "chimpanzees = your ~250,000th cousin",
+    fact: "This individual is the last common ancestor of humans and chimpanzees. It looked something like a small ape. After this point, the lineage split — one branch led to us, one to chimps.",
+    info: "~6.5 million years ÷ 26 years/generation ≈ 250,000 generations. Chimpanzees are your closest living relatives — you share ~98.7% of your DNA."
+  },
+  {
+    gen: 340000,
+    timeAgo: "~8–9 million years ago",
+    icon: "🦍",
+    title: "common ancestor with gorillas",
+    era: "~340,000 generations back",
+    cousin: "gorillas = your ~340,000th cousin",
+    fact: "Before this split, your ancestors were shared with gorillas AND chimpanzees. Gorillas diverged first. You share about 98.3% of DNA with gorillas.",
+    info: "~9 million years ÷ 26 years/generation ≈ 346,000 generations. Gorillas are your next closest living relatives after chimps."
+  },
+  {
+    gen: 520000,
+    timeAgo: "~12–14 million years ago",
+    icon: "🦧",
+    title: "common ancestor with orangutans",
+    era: "~520,000 generations back",
+    cousin: "orangutans = your ~520,000th cousin",
+    fact: "The orangutan lineage split off next. They diverged as the African and Asian ape populations separated. You share ~96.9% DNA with orangutans.",
+    info: "~13 million years ÷ 25 years/generation ≈ 520,000 generations. Orangutans are your most distant great-ape relatives."
+  },
+  {
+    gen: 1000000,
+    timeAgo: "~25 million years ago",
+    icon: "🐵",
+    title: "common ancestor with Old World monkeys",
+    era: "~1,000,000 generations back",
+    cousin: "macaques, baboons = your ~1,000,000th cousin",
+    fact: "Around 25 million years ago, apes and Old World monkeys (baboons, macaques) diverged. Apes lost tails; monkeys kept them. You share ~93% DNA with macaques.",
+    info: "~25 million years ÷ 25 years/generation ≈ 1,000,000 generations. One million ancestors back in your direct line."
+  },
+  {
+    gen: 2200000,
+    timeAgo: "~65 million years ago",
+    icon: "🐁",
+    title: "common ancestor with rodents",
+    era: "~2,200,000 generations back",
+    cousin: "mice, rats = your ~2,200,000th cousin",
+    fact: "Just after the mass extinction that killed the dinosaurs, a small shrew-like mammal was ancestral to both rodents and primates. You share ~85% of genes with mice.",
+    info: "65 million years ÷ 30 years/generation ≈ 2.2 million generations. Mice share most of our disease-relevant genes."
+  },
+  {
+    gen: 13000000,
+    timeAgo: "~375 million years ago",
+    icon: "🐟",
+    title: "common ancestor with fish",
+    era: "~13,000,000 generations back",
+    cousin: "fish = your ~13,000,000th cousin",
+    fact: "Your ancestors were lobe-finned fish (like Tiktaalik) that crawled onto land around 375 million years ago. Your limbs evolved from their fins. You share ~85% of genes with zebrafish.",
+    info: "~375 million years ÷ 3 years/generation (early vertebrates) ≈ 125 million generations, or using a broader range ~13 million. Fish are your distant cousins."
+  },
+  {
+    gen: 30000000,
+    timeAgo: "~600 million years ago",
+    icon: "🦋",
+    title: "common ancestor with insects",
+    era: "~30,000,000 generations back",
+    cousin: "insects = your ~30,000,000th cousin",
+    fact: "About 600 million years ago, the lineage split between creatures that would become vertebrates (like you) and invertebrates (like insects). You still share ~60% of genes with fruit flies.",
+    info: "You and a fruit fly share the same basic genetic toolkit for body development — the Hox genes that determine where heads, limbs, and organs go."
+  },
+  {
+    gen: 100000000,
+    timeAgo: "~1 billion years ago",
+    icon: "🌿",
+    title: "common ancestor with plants",
+    era: "~100,000,000 generations back",
+    cousin: "all plants = your ~100,000,000th cousin",
+    fact: "About 1 billion years ago, the lineage split between what would become animals and what would become plants. You share ~18% of your genes with plants.",
+    info: "You and an oak tree both descended from single-celled eukaryotes. You share the basic cellular machinery: mitochondria, ribosomes, cell division."
+  },
+  {
+    gen: 300000000,
+    timeAgo: "~3.5–3.8 billion years ago",
+    icon: "🦠",
+    title: "LUCA — last universal common ancestor",
+    era: "~300,000,000 generations back",
+    cousin: "all life on Earth",
+    fact: "Every living thing — bacteria, fungi, plants, animals — descended from a single ancestral cell (or community of cells) that lived 3.8 billion years ago. You are its descendant.",
+    info: "LUCA was likely a single-celled organism living near hydrothermal vents. Its descendants split into three domains of life: Bacteria, Archaea, and Eukarya (which includes you). Life is one family."
+  }
+];
+
+let currentIdx = 0;
+let isFlipped = false;
+
+function renderMilestones() {
+  const dots = document.getElementById('milestoneDots');
+  dots.innerHTML = '';
+  const milestones =  [0, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  const labels =      ['you','H. sapiens','heidelberg.','H. erectus','australo.','chimp LCA','gorilla LCA','orangutan','monkey LCA','rodent LCA','fish LCA','insect LCA','plant LCA','LUCA'];
+  const icons =       ['🧍','🗿','🦴','🧱','🦶','🐒','🦍','🦧','🐵','🐁','🐟','🦋','🌿','🦠'];
+  milestones.forEach((cardIdx, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'm-dot' + (cardIdx === currentIdx ? ' active' : '');
+    btn.innerHTML = `<span class="dot-icon">${icons[i]}</span>${labels[i]}`;
+    btn.onclick = () => jumpTo(cardIdx);
+    dots.appendChild(btn);
+  });
+}
+
+function renderCard() {
+  const c = CARDS[currentIdx];
+  const totalCards = CARDS.length;
+
+  document.getElementById('gen-num').textContent = c.gen.toLocaleString();
+  document.getElementById('time-ago').textContent = c.timeAgo;
+  document.getElementById('card-index').textContent = `card ${currentIdx + 1} of ${totalCards}`;
+
+  document.getElementById('frontIcon').textContent = c.icon;
+  document.getElementById('frontTitle').textContent = c.title;
+  document.getElementById('frontEra').textContent = c.era;
+  document.getElementById('frontCousin').textContent = c.cousin;
+  document.getElementById('frontNum').textContent = `#${currentIdx + 1}`;
+
+  document.getElementById('backIcon').textContent = c.icon;
+  document.getElementById('backTitle').textContent = c.title;
+  document.getElementById('backFact').textContent = c.fact;
+
+  document.getElementById('infoStrip').innerHTML = `<span class="highlight">${c.title}</span> — ${c.info}`;
+
+  const pct = (currentIdx / (totalCards - 1)) * 100;
+  document.getElementById('tlFill').style.width = pct + '%';
+
+  document.getElementById('cardInner').classList.toggle('flipped', isFlipped);
+  document.getElementById('nextBtn').textContent = currentIdx === totalCards - 1 ? 'end of deck' : 'next card →';
+
+  renderMilestones();
+}
+
+function flipCard() {
+  isFlipped = !isFlipped;
+  document.getElementById('cardInner').classList.toggle('flipped', isFlipped);
+}
+
+function nextCard() {
+  if (currentIdx < CARDS.length - 1) {
+    currentIdx++;
+    isFlipped = false;
+    renderCard();
+  }
+}
+
+function prevCard() {
+  if (currentIdx > 0) {
+    currentIdx--;
+    isFlipped = false;
+    renderCard();
+  }
+}
+
+function jumpTo(idx) {
+  currentIdx = idx;
+  isFlipped = false;
+  renderCard();
+}
+
+function resetDeck() {
+  currentIdx = 0;
+  isFlipped = false;
+  renderCard();
+}
+
+renderCard();
+</script>
+</body>
+</html>
