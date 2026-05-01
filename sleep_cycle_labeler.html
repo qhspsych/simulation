@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Psychology — Sleep Cycle Labeler</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inconsolata:wght@400;500;600&family=Source+Serif+4:ital,wght@0,300;0,400;1,300&display=swap');
+
+:root {
+  --ink: #1a1410;
+  --paper: #f5f0e8;
+  --paper2: #ede7d9;
+  --paper3: #e0d9c8;
+  --rule: #c8bfa8;
+  --accent: #8b2635;
+  --accent2: #2d6a4f;
+  --accent3: #1d3557;
+  --gold: #c9963a;
+  --text: #2c2318;
+  --muted: #7a6e5f;
+
+  /* Sleep stage colors */
+  --col-awake: #d4a017;
+  --col-rem:   #8b2635;
+  --col-n1:    #4a7c94;
+  --col-n2:    #2d6a4f;
+  --col-n3:    #1d3557;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: 'Source Serif 4', serif;
+  min-height: 100vh;
+}
+
+/* Paper texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(0,0,0,0.04) 27px, rgba(0,0,0,0.04) 28px),
+    repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(0,0,0,0.015) 27px, rgba(0,0,0,0.015) 28px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 32px 60px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Red left margin line */
+.page::before {
+  content: '';
+  position: fixed;
+  left: calc(50% - 480px + 70px);
+  top: 0; bottom: 0;
+  width: 2px;
+  background: rgba(139, 38, 53, 0.25);
+  z-index: 0;
+}
+
+header {
+  padding-left: 20px;
+  margin-bottom: 32px;
+}
+
+.kicker {
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 900;
+  line-height: 1.0;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.byline {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+/* ======= MODE TABS ======= */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--rule);
+}
+
+.tab {
+  font-family: 'Inconsolata', monospace;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ======= HYPNOGRAM ======= */
+.hypnogram-wrap {
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 24px 20px 16px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.hypno-title {
+  font-family: 'Inconsolata', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.hypno-svg-wrap {
+  position: relative;
+}
+
+#hypnogram-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ======= LABEL BANK ======= */
+.label-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.label-bank-box {
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  padding: 16px;
+}
+
+.label-bank-box h3 {
+  font-family: 'Inconsolata', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.label-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.label-chip {
+  font-family: 'Inconsolata', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 2px;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s;
+  border: 2px solid transparent;
+}
+
+.label-chip:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.label-chip.dragging { opacity: 0.35; cursor: grabbing; }
+.label-chip.used { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+.chip-awake { background: var(--col-awake); color: white; }
+.chip-rem   { background: var(--col-rem);   color: white; }
+.chip-n1    { background: var(--col-n1);    color: white; }
+.chip-n2    { background: var(--col-n2);    color: white; }
+.chip-n3    { background: var(--col-n3);    color: white; }
+
+/* Question panels */
+.question-box {
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  padding: 16px;
+}
+
+.question-box h3 {
+  font-family: 'Inconsolata', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.question {
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.question-text {
+  margin-bottom: 6px;
+}
+
+.q-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.q-btn {
+  font-family: 'Inconsolata', monospace;
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.12s;
+}
+
+.q-btn:hover { background: var(--paper3); border-color: var(--muted); }
+.q-btn.selected { border-color: var(--accent3); background: #e8eef5; }
+.q-btn.correct { background: #e8f5ee; border-color: var(--accent2); color: var(--accent2); font-weight: 600; }
+.q-btn.wrong { background: #f5e8ea; border-color: var(--accent); color: var(--accent); }
+
+/* Drop zones on hypnogram */
+.drop-zone-svg {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.drop-zone-svg:hover rect { stroke: var(--gold) !important; stroke-width: 2px !important; }
+.drop-zone-svg.drag-over rect { fill: rgba(201,150,58,0.15) !important; stroke: var(--gold) !important; }
+
+/* Action buttons */
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.btn-primary {
+  font-family: 'Inconsolata', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.btn-primary:hover { background: #a52f40; transform: translateY(-1px); }
+
+.btn-secondary {
+  font-family: 'Inconsolata', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+/* Feedback area */
+.feedback-wrap {
+  margin-top: 16px;
+}
+
+.fb-item {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-left: 3px solid transparent;
+  animation: slideIn 0.25s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.fb-correct {
+  background: #eef6f1;
+  border-color: var(--accent2);
+}
+
+.fb-wrong {
+  background: #faeced;
+  border-color: var(--accent);
+}
+
+.fb-warn {
+  background: #fdf5e6;
+  border-color: var(--gold);
+}
+
+.fb-label {
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+/* Score display */
+.score-banner {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  animation: slideIn 0.3s ease;
+}
+
+.score-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--gold);
+}
+
+.score-denom {
+  font-family: 'Inconsolata', monospace;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.score-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--paper2);
+}
+
+.hidden { display: none !important; }
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Inconsolata', monospace;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="kicker">AP Psychology · Unit 1B · Sleep</div>
+    <h1>Sleep Cycle <em>Labeler</em></h1>
+    <p class="byline">Label the hypnogram, then answer application questions — the same format the AP exam uses.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchMode('label')">Part 1: Label the Hypnogram</button>
+    <button class="tab" onclick="switchMode('questions')">Part 2: Application Questions</button>
+  </div>
+
+  <!-- ============ PART 1: LABEL MODE ============ -->
+  <div id="mode-label">
+
+    <div class="hypnogram-wrap">
+      <div class="hypno-title">Sleep Stages in a Typical Night (8 Hours) — Label Each Segment</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--col-awake)"></div>Awake</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--col-rem)"></div>REM</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--col-n1)"></div>NREM 1</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--col-n2)"></div>NREM 2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--col-n3)"></div>NREM 3</div>
+      </div>
+      <div class="hypno-svg-wrap" id="hypno-svg-wrap">
+        <svg id="hypnogram-svg" viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background -->
+          <rect width="880" height="280" fill="none"/>
+
+          <!-- Grid lines -->
+          <line x1="80" y1="30"  x2="860" y2="30"  stroke="#c8bfa8" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <line x1="80" y1="80"  x2="860" y2="80"  stroke="#c8bfa8" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <line x1="80" y1="130" x2="860" y2="130" stroke="#c8bfa8" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <line x1="80" y1="180" x2="860" y2="180" stroke="#c8bfa8" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <line x1="80" y1="230" x2="860" y2="230" stroke="#c8bfa8" stroke-width="0.5" stroke-dasharray="3,3"/>
+
+          <!-- Y axis -->
+          <line x1="80" y1="20" x2="80" y2="240" stroke="#7a6e5f" stroke-width="1.5"/>
+          <!-- Y labels -->
+          <text x="72" y="34"  text-anchor="end" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">Awake</text>
+          <text x="72" y="84"  text-anchor="end" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">REM</text>
+          <text x="72" y="134" text-anchor="end" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">N1</text>
+          <text x="72" y="184" text-anchor="end" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">N2</text>
+          <text x="72" y="234" text-anchor="end" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">N3</text>
+
+          <!-- X axis -->
+          <line x1="80" y1="240" x2="860" y2="240" stroke="#7a6e5f" stroke-width="1.5"/>
+          <!-- X labels (hours) -->
+          <text x="80"  y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">0</text>
+          <text x="177" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">1h</text>
+          <text x="274" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">2h</text>
+          <text x="371" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">3h</text>
+          <text x="468" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">4h</text>
+          <text x="565" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">5h</text>
+          <text x="662" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">6h</text>
+          <text x="759" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">7h</text>
+          <text x="860" y="256" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">8h</text>
+          <text x="470" y="272" text-anchor="middle" font-family="Source Serif 4,serif" font-size="12" fill="#7a6e5f" font-style="italic">Hours of Sleep</text>
+
+          <!-- X tick marks -->
+          <line x1="177" y1="238" x2="177" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <line x1="274" y1="238" x2="274" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <line x1="371" y1="238" x2="371" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <line x1="468" y1="238" x2="468" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <text x="14" y="140" text-anchor="middle" font-family="Source Serif 4,serif" font-size="12" fill="#7a6e5f" font-style="italic" transform="rotate(-90, 14, 140)">Sleep Stage</text>
+          <line x1="565" y1="238" x2="565" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <line x1="662" y1="238" x2="662" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+          <line x1="759" y1="238" x2="759" y2="242" stroke="#7a6e5f" stroke-width="1"/>
+
+          <!-- THE SLEEP LINE (correct path) - drawn as steps -->
+          <!-- Defined as a polyline connecting stage transitions -->
+          <!-- Stages coded: awake=30, rem=80, n1=130, n2=180, n3=230 -->
+          <!-- Segments (x1,y1 -> x2,y2):
+            Awake fallasleep: 80,30 -> 97,30 -> 97,130 (enter N1)
+            N1 brief: 97,130 -> 136,130 -> 136,180 (enter N2)
+            N2: 136,180 -> 194,180 -> 194,230 (enter N3)
+            N3 deep: 194,230 -> 274,230 -> 274,180 (back to N2)
+            N2 brief: 274,180 -> 312,180 -> 312,80 (first REM)
+            REM1: 312,80 -> 371,80 -> 371,130 (back to N1)
+            N1: 371,130 -> 390,130 -> 390,180 (N2)
+            N2: 390,180 -> 420,180 -> 420,230 (N3)
+            N3 shorter: 420,230 -> 468,230 -> 468,180 (N2)
+            N2: 468,180 -> 497,180 -> 497,80 (REM2)
+            REM2: 497,80 -> 585,80 -> 585,130 (N1)
+            N1: 585,130 -> 604,130 -> 604,180 (N2)
+            N2: 604,180 -> 633,180 -> 633,230 (N3 very brief)
+            N3 brief: 633,230 -> 652,230 -> 652,180 (N2)
+            N2: 652,180 -> 672,180 -> 672,80 (REM3)
+            REM3 long: 672,80 -> 779,80 -> 779,130 (N1)
+            N1: 779,130 -> 800,130 -> 800,80 (REM4 or brief)
+            REM4: 800,80 -> 860,80
+          -->
+          <polyline id="sleep-line"
+            points="80,30 97,30 97,130 136,130 136,180 194,180 194,230 274,230 274,180 312,180 312,80 371,80 371,130 390,130 390,180 420,180 420,230 468,230 468,180 497,180 497,80 585,80 585,130 604,130 604,180 633,180 633,230 652,230 652,180 672,180 672,80 779,80 779,130 800,130 800,80 860,80"
+            fill="none" stroke="#c8bfa8" stroke-width="2.5" stroke-dasharray="4,3"/>
+
+          <!-- DROP ZONES — clickable segments labeled A–N -->
+          <!-- Each zone covers a horizontal span of the hypnogram -->
+          <!-- Zone data: id, x, y, width, height, correct stage -->
+
+          <!-- Segment A: ~Hour 0–0.2, N1 (brief descent) -->
+          <g class="drop-zone-svg" data-zone="A" onclick="zoneClick('A')"
+             ondragover="zoneDragOver(event,'A')" ondragleave="zoneDragLeave(event,'A')" ondrop="zoneDrop(event,'A')">
+            <rect x="88" y="120" width="50" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-A" x="113" y="135" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">A</text>
+          </g>
+
+          <!-- Segment B: N2 initial descent -->
+          <g class="drop-zone-svg" data-zone="B" onclick="zoneClick('B')"
+             ondragover="zoneDragOver(event,'B')" ondragleave="zoneDragLeave(event,'B')" ondrop="zoneDrop(event,'B')">
+            <rect x="140" y="170" width="50" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-B" x="165" y="185" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">B</text>
+          </g>
+
+          <!-- Segment C: N3 first deep sleep -->
+          <g class="drop-zone-svg" data-zone="C" onclick="zoneClick('C')"
+             ondragover="zoneDragOver(event,'C')" ondragleave="zoneDragLeave(event,'C')" ondrop="zoneDrop(event,'C')">
+            <rect x="200" y="220" width="68" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-C" x="234" y="235" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">C</text>
+          </g>
+
+          <!-- Segment D: First REM period -->
+          <g class="drop-zone-svg" data-zone="D" onclick="zoneClick('D')"
+             ondragover="zoneDragOver(event,'D')" ondragleave="zoneDragLeave(event,'D')" ondrop="zoneDrop(event,'D')">
+            <rect x="316" y="70" width="52" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-D" x="342" y="85" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">D</text>
+          </g>
+
+          <!-- Segment E: N3 second cycle -->
+          <g class="drop-zone-svg" data-zone="E" onclick="zoneClick('E')"
+             ondragover="zoneDragOver(event,'E')" ondragleave="zoneDragLeave(event,'E')" ondrop="zoneDrop(event,'E')">
+            <rect x="424" y="220" width="40" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-E" x="444" y="235" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">E</text>
+          </g>
+
+          <!-- Segment F: Second REM period -->
+          <g class="drop-zone-svg" data-zone="F" onclick="zoneClick('F')"
+             ondragover="zoneDragOver(event,'F')" ondragleave="zoneDragLeave(event,'F')" ondrop="zoneDrop(event,'F')">
+            <rect x="501" y="70" width="80" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-F" x="541" y="85" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">F</text>
+          </g>
+
+          <!-- Segment G: N3 brief third cycle -->
+          <g class="drop-zone-svg" data-zone="G" onclick="zoneClick('G')"
+             ondragover="zoneDragOver(event,'G')" ondragleave="zoneDragLeave(event,'G')" ondrop="zoneDrop(event,'G')">
+            <rect x="637" y="220" width="12" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-G" x="643" y="235" text-anchor="middle" font-family="Inconsolata,monospace" font-size="9" fill="#7a6e5f">G</text>
+          </g>
+
+          <!-- Segment H: Third (longest) REM period -->
+          <g class="drop-zone-svg" data-zone="H" onclick="zoneClick('H')"
+             ondragover="zoneDragOver(event,'H')" ondragleave="zoneDragLeave(event,'H')" ondrop="zoneDrop(event,'H')">
+            <rect x="676" y="70" width="100" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-H" x="726" y="85" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">H</text>
+          </g>
+
+          <!-- Segment I: Final REM near wake -->
+          <g class="drop-zone-svg" data-zone="I" onclick="zoneClick('I')"
+             ondragover="zoneDragOver(event,'I')" ondragleave="zoneDragLeave(event,'I')" ondrop="zoneDrop(event,'I')">
+            <rect x="804" y="70" width="52" height="22" rx="2" fill="rgba(255,255,255,0.5)" stroke="#c8bfa8" stroke-width="1" stroke-dasharray="3,2"/>
+            <text id="label-I" x="830" y="85" text-anchor="middle" font-family="Inconsolata,monospace" font-size="11" fill="#7a6e5f">I</text>
+          </g>
+
+          <!-- Highlight overlay for selected zone (shown on click) -->
+          <rect id="zone-highlight" x="0" y="0" width="0" height="0" fill="rgba(201,150,58,0.2)" stroke="var(--gold)" stroke-width="2" rx="2" pointer-events="none"/>
+
+        </svg>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+    </div>
+
+    <!-- Selected zone indicator -->
+    <div id="zone-info" style="margin-bottom:12px; min-height:24px;">
+      <span style="font-family:Inconsolata,monospace;font-size:12px;color:var(--muted);" id="zone-info-text">Click a labeled zone on the hypnogram, then click a stage below to assign it.</span>
+    </div>
+
+    <div class="label-section">
+      <div class="label-bank-box">
+        <h3>Sleep Stage Labels — Click a Zone First, Then Pick a Stage</h3>
+        <div class="label-bank" id="label-bank">
+          <div class="label-chip chip-awake" data-stage="awake" onclick="stageClick('awake')">Awake</div>
+          <div class="label-chip chip-rem"   data-stage="rem"   onclick="stageClick('rem')">REM</div>
+          <div class="label-chip chip-n1"    data-stage="n1"    onclick="stageClick('n1')">NREM 1</div>
+          <div class="label-chip chip-n2"    data-stage="n2"    onclick="stageClick('n2')">NREM 2</div>
+          <div class="label-chip chip-n3"    data-stage="n3"    onclick="stageClick('n3')">NREM 3</div>
+        </div>
+      </div>
+
+      <div class="label-bank-box" id="assignments-box">
+        <h3>Your Assignments</h3>
+        <div id="assignments-list" style="font-family:Inconsolata,monospace;font-size:12px;line-height:2;">
+          <span style="color:var(--muted);font-style:italic;">None yet — click a zone above.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" onclick="checkLabels()">Check My Labels</button>
+      <button class="btn-secondary" onclick="resetLabels()">Reset</button>
+      <span style="font-family:Inconsolata,monospace;font-size:11px;color:var(--muted);" id="label-progress">0 / 9 labeled</span>
+    </div>
+
+    <div id="label-feedback" class="feedback-wrap"></div>
+
+  </div><!-- end mode-label -->
+
+
+  <!-- ============ PART 2: QUESTIONS ============ -->
+  <div id="mode-questions" class="hidden">
+
+    <div id="q-score-banner" class="hidden score-banner">
+      <div>
+        <div class="score-num" id="q-score-num">—</div>
+        <div class="score-denom" id="q-score-denom">/ 8</div>
+      </div>
+      <div class="score-msg" id="q-score-msg"></div>
+    </div>
+
+    <div class="question-box" style="margin-bottom:16px;">
+      <h3>Application Questions — Select the Best Answer</h3>
+
+      <div class="question" id="q1">
+        <div class="question-text"><strong>1.</strong> In which sleep stage is sleepwalking most likely to occur?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(1,'a')">REM sleep</button>
+          <button class="q-btn" onclick="selectAnswer(1,'b')">NREM Stage 1</button>
+          <button class="q-btn" onclick="selectAnswer(1,'c')">NREM Stage 3</button>
+          <button class="q-btn" onclick="selectAnswer(1,'d')">NREM Stage 2</button>
+        </div>
+      </div>
+
+      <div class="question" id="q2">
+        <div class="question-text"><strong>2.</strong> During which stage does the brain produce sleep spindles associated with memory consolidation?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(2,'a')">NREM Stage 1</button>
+          <button class="q-btn" onclick="selectAnswer(2,'b')">NREM Stage 2</button>
+          <button class="q-btn" onclick="selectAnswer(2,'c')">NREM Stage 3</button>
+          <button class="q-btn" onclick="selectAnswer(2,'d')">REM sleep</button>
+        </div>
+      </div>
+
+      <div class="question" id="q3">
+        <div class="question-text"><strong>3.</strong> What happens to the duration of REM sleep across the course of a night?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(3,'a')">REM periods stay the same length each cycle</button>
+          <button class="q-btn" onclick="selectAnswer(3,'b')">REM periods get shorter as the night goes on</button>
+          <button class="q-btn" onclick="selectAnswer(3,'c')">REM periods get longer as the night goes on</button>
+          <button class="q-btn" onclick="selectAnswer(3,'d')">REM only occurs in the first half of the night</button>
+        </div>
+      </div>
+
+      <div class="question" id="q4">
+        <div class="question-text"><strong>4.</strong> What happens to deep sleep (NREM Stage 3) across the course of a night?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(4,'a')">NREM 3 periods get longer as the night progresses</button>
+          <button class="q-btn" onclick="selectAnswer(4,'b')">NREM 3 periods get shorter and eventually disappear late in the night</button>
+          <button class="q-btn" onclick="selectAnswer(4,'c')">NREM 3 is evenly distributed throughout the entire night</button>
+          <button class="q-btn" onclick="selectAnswer(4,'d')">NREM 3 only occurs after each REM period</button>
+        </div>
+      </div>
+
+      <div class="question" id="q5">
+        <div class="question-text"><strong>5.</strong> A person is deprived of REM sleep for three nights. On the fourth night, which of the following is most likely?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(5,'a')">They will have less REM sleep than normal to compensate for rest</button>
+          <button class="q-btn" onclick="selectAnswer(5,'b')">They will spend more time in NREM Stage 3 to compensate</button>
+          <button class="q-btn" onclick="selectAnswer(5,'c')">They will experience REM rebound — more and longer REM periods</button>
+          <button class="q-btn" onclick="selectAnswer(5,'d')">They will sleep fewer total hours</button>
+        </div>
+      </div>
+
+      <div class="question" id="q6">
+        <div class="question-text"><strong>6.</strong> During REM sleep, why are people effectively paralyzed?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(6,'a')">The thalamus shuts down all sensory processing</button>
+          <button class="q-btn" onclick="selectAnswer(6,'b')">The brainstem blocks signals from the motor cortex to the muscles</button>
+          <button class="q-btn" onclick="selectAnswer(6,'c')">Cortisol levels surge, inhibiting muscular movement</button>
+          <button class="q-btn" onclick="selectAnswer(6,'d')">The hippocampus suppresses voluntary movement</button>
+        </div>
+      </div>
+
+      <div class="question" id="q7">
+        <div class="question-text"><strong>7.</strong> The brain waves present just as someone is drifting off to sleep (NREM Stage 1) are called:</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(7,'a')">Delta waves</button>
+          <button class="q-btn" onclick="selectAnswer(7,'b')">Alpha waves</button>
+          <button class="q-btn" onclick="selectAnswer(7,'c')">Theta waves</button>
+          <button class="q-btn" onclick="selectAnswer(7,'d')">Beta waves</button>
+        </div>
+      </div>
+
+      <div class="question" id="q8">
+        <div class="question-text"><strong>8.</strong> A student goes to bed at 11 PM. Based on a typical sleep cycle, approximately when would their first REM period begin?</div>
+        <div class="q-options">
+          <button class="q-btn" onclick="selectAnswer(8,'a')">11:10 PM (about 10 minutes after sleep onset)</button>
+          <button class="q-btn" onclick="selectAnswer(8,'b')">12:00 AM (about 1 hour after sleep onset)</button>
+          <button class="q-btn" onclick="selectAnswer(8,'c')">2:00 AM (about 3 hours after sleep onset)</button>
+          <button class="q-btn" onclick="selectAnswer(8,'d')">5:00 AM (in the final hours of sleep)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" onclick="checkQuestions()">Check Answers</button>
+      <button class="btn-secondary" onclick="resetQuestions()">Reset</button>
+    </div>
+
+    <div id="q-feedback" class="feedback-wrap"></div>
+
+  </div><!-- end mode-questions -->
+
+</div><!-- end page -->
+
+<script>
+// =============================================
+// ZONE DATA
+// =============================================
+
+const zoneAnswers = {
+  A: 'n1',
+  B: 'n2',
+  C: 'n3',
+  D: 'rem',
+  E: 'n3',
+  F: 'rem',
+  G: 'n3',
+  H: 'rem',
+  I: 'rem'
+};
+
+const zoneDescriptions = {
+  A: 'Zone A (early descent, ~0–20 min)',
+  B: 'Zone B (~20–40 min)',
+  C: 'Zone C (first deep sleep, ~40 min–1.5h)',
+  D: 'Zone D (first REM, ~1.5–2h)',
+  E: 'Zone E (second deep sleep, ~2.5h)',
+  F: 'Zone F (second REM, ~3–3.5h)',
+  G: 'Zone G (brief N3, ~4h)',
+  H: 'Zone H (longest REM, ~4–5h)',
+  I: 'Zone I (final REM, ~7–8h)'
+};
+
+const stageFeedback = {
+  A: { correct: 'n1', msg: 'Zone A is NREM Stage 1 — the brief, light entry into sleep. Brain shifts from alpha to theta waves; hypnagogic sensations (falling, twitching) can occur here.' },
+  B: { correct: 'n2', msg: 'Zone B is NREM Stage 2 — sleep deepens, sleep spindles (bursts of rapid brainwave activity tied to memory consolidation) appear here.' },
+  C: { correct: 'n3', msg: 'Zone C is NREM Stage 3 — the first and longest deep sleep period of the night. Delta waves dominate; this is when sleepwalking, bedwetting, and night terrors can occur.' },
+  D: { correct: 'rem', msg: 'Zone D is the first REM period — short (~10 min), occurring about 90 minutes after sleep onset. Vivid dreaming, rapid eye movement, motor paralysis (brainstem blocks motor cortex signals).' },
+  E: { correct: 'n3', msg: 'Zone E is a second NREM Stage 3 period. Notice it\'s shorter than Zone C — deep sleep periods shrink across the night as the balance shifts toward more REM.' },
+  F: { correct: 'rem', msg: 'Zone F is the second REM period — longer than the first. This pattern (more and longer REM as the night progresses) is critical for the exam.' },
+  G: { correct: 'n3', msg: 'Zone G is a brief NREM Stage 3 segment — by this point in the night, deep sleep periods are very short. You\'re mostly getting NREM 2 and REM now.' },
+  H: { correct: 'rem', msg: 'Zone H is the longest REM period of the night — occurring in the latter half. If you\'re cut short on sleep, this is what you lose most, which is why REM rebound occurs.' },
+  I: { correct: 'rem', msg: 'Zone I is the final REM period near waking. The last 1–2 hours of an 8-hour night are almost entirely REM — this is why alarms that cut sleep short cost significant REM time.' }
+};
+
+const stageColors = {
+  awake: 'var(--col-awake)',
+  rem: 'var(--col-rem)',
+  n1: 'var(--col-n1)',
+  n2: 'var(--col-n2)',
+  n3: 'var(--col-n3)'
+};
+
+const stageNames = {
+  awake: 'Awake',
+  rem: 'REM',
+  n1: 'NREM 1',
+  n2: 'NREM 2',
+  n3: 'NREM 3'
+};
+
+// =============================================
+// STATE
+// =============================================
+
+let selectedZone = null;
+let labelPlacements = {}; // zoneId -> stage string
+let labelChecked = false;
+
+let questionAnswers = {}; // qNum -> answer letter
+let questionsChecked = false;
+
+const correctAnswers = {
+  1: 'c', // NREM 3
+  2: 'b', // NREM 2
+  3: 'c', // REM gets longer
+  4: 'b', // NREM 3 gets shorter
+  5: 'c', // REM rebound
+  6: 'b', // brainstem blocks motor cortex
+  7: 'c', // theta waves
+  8: 'b'  // ~1 hour after sleep onset
+};
+
+const answerFeedback = {
+  1: { correct: 'c', explanation: 'Sleepwalking (somnambulism) occurs during NREM Stage 3 — deep sleep. It does NOT occur during REM, even though REM involves vivid dreaming. During REM, the brainstem paralyzes the muscles, preventing movement.' },
+  2: { correct: 'b', explanation: 'Sleep spindles — bursts of rapid brainwave activity associated with memory consolidation — occur during NREM Stage 2. Not Stage 3 (which has delta waves) and not REM.' },
+  3: { correct: 'c', explanation: 'REM periods get progressively LONGER across the night. The first REM period is only ~10 minutes; by the final cycle, REM can last 45–60 minutes. This is a classic hypnogram misreading error.' },
+  4: { correct: 'b', explanation: 'NREM Stage 3 (deep sleep) periods get SHORTER across the night and may disappear entirely in later cycles. The night starts with lots of deep sleep and gradually shifts toward more REM time.' },
+  5: { correct: 'c', explanation: 'REM rebound — after being deprived of REM sleep, the body compensates by increasing REM duration and intensity on recovery nights. This suggests REM serves important biological functions.' },
+  6: { correct: 'b', explanation: 'During REM sleep, the brainstem blocks motor signals from the motor cortex, effectively paralyzing the voluntary muscles. This is why REM is called "paradoxical sleep" — the brain is active but the body is still.' },
+  7: { correct: 'c', explanation: 'NREM Stage 1 is characterized by theta waves (low amplitude, high frequency). Alpha waves are present in a relaxed but awake state. Delta waves are in deep sleep (N3). Beta waves are present in an alert, awake state.' },
+  8: { correct: 'b', explanation: 'The first REM period typically occurs about 90 minutes (roughly 1 hour) after sleep onset, following the descent through NREM 1 → NREM 2 → NREM 3 and back up. The "90-minute cycle" is a key sleep fact.' }
+};
+
+// =============================================
+// MODE SWITCHING
+// =============================================
+
+function switchMode(mode) {
+  document.getElementById('mode-label').classList.toggle('hidden', mode !== 'label');
+  document.getElementById('mode-questions').classList.toggle('hidden', mode !== 'questions');
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && mode === 'label') || (i === 1 && mode === 'questions'));
+  });
+}
+
+// =============================================
+// ZONE INTERACTION
+// =============================================
+
+function zoneClick(zoneId) {
+  selectedZone = zoneId;
+
+  // Update highlight rect position
+  const zoneRects = {
+    A: [88, 120, 50, 22],
+    B: [140, 170, 50, 22],
+    C: [200, 220, 68, 22],
+    D: [316, 70, 52, 22],
+    E: [424, 220, 40, 22],
+    F: [501, 70, 80, 22],
+    G: [637, 220, 12, 22],
+    H: [676, 70, 100, 22],
+    I: [804, 70, 52, 22]
+  };
+
+  const r = zoneRects[zoneId];
+  const hl = document.getElementById('zone-highlight');
+  hl.setAttribute('x', r[0] - 3);
+  hl.setAttribute('y', r[1] - 3);
+  hl.setAttribute('width', r[2] + 6);
+  hl.setAttribute('height', r[3] + 6);
+
+  const info = document.getElementById('zone-info-text');
+  const current = labelPlacements[zoneId];
+  info.innerHTML = `<span style="color:var(--ink);font-weight:600;">Zone ${zoneId}</span> selected — ${zoneDescriptions[zoneId]}${current ? ' <span style="color:var(--muted);">(currently: ' + stageNames[current] + ')</span>' : ''}. Now pick a stage below.`;
+}
+
+function stageClick(stage) {
+  if (!selectedZone) {
+    document.getElementById('zone-info-text').innerHTML = '<span style="color:var(--accent);">Select a zone on the hypnogram first, then pick a stage.</span>';
+    return;
+  }
+
+  labelPlacements[selectedZone] = stage;
+  labelChecked = false;
+
+  // Update the label text on SVG
+  const textEl = document.getElementById('label-' + selectedZone);
+  if (textEl) {
+    textEl.textContent = stageNames[stage];
+    textEl.setAttribute('fill', stageColors[stage].replace('var(--col-', '').replace(')', ''));
+    // Use direct color values
+    const colorMap = {
+      awake: '#c9963a',
+      rem: '#8b2635',
+      n1: '#4a7c94',
+      n2: '#2d6a4f',
+      n3: '#1d3557'
+    };
+    textEl.setAttribute('fill', colorMap[stage]);
+    textEl.style.fontWeight = '700';
+  }
+
+  updateAssignmentsList();
+  updateLabelProgress();
+
+  // Clear selection
+  document.getElementById('zone-info-text').innerHTML = `Zone <strong>${selectedZone}</strong> set to <strong style="color:${stageColors[stage]}">${stageNames[stage]}</strong>. Click another zone to continue.`;
+  selectedZone = null;
+  document.getElementById('zone-highlight').setAttribute('width', '0');
+  document.getElementById('label-feedback').innerHTML = '';
+}
+
+function zoneDragOver(e, zoneId) {
+  e.preventDefault();
+}
+function zoneDragLeave(e, zoneId) {}
+function zoneDrop(e, zoneId) {}
+
+function updateAssignmentsList() {
+  const el = document.getElementById('assignments-list');
+  const zones = ['A','B','C','D','E','F','G','H','I'];
+  let html = '';
+  const colorMap = {
+    awake: '#c9963a', rem: '#8b2635', n1: '#4a7c94', n2: '#2d6a4f', n3: '#1d3557'
+  };
+
+  zones.forEach(z => {
+    const placed = labelPlacements[z];
+    if (placed) {
+      html += `<div>Zone <strong>${z}</strong>: <span style="color:${colorMap[placed]};font-weight:600;">${stageNames[placed]}</span>
+        <button onclick="clearZone('${z}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;margin-left:4px;">×</button></div>`;
+    }
+  });
+
+  el.innerHTML = html || '<span style="color:var(--muted);font-style:italic;">None yet — click a zone above.</span>';
+}
+
+function clearZone(zoneId) {
+  delete labelPlacements[zoneId];
+  const textEl = document.getElementById('label-' + zoneId);
+  if (textEl) {
+    textEl.textContent = zoneId;
+    textEl.setAttribute('fill', '#7a6e5f');
+    textEl.style.fontWeight = '400';
+  }
+  updateAssignmentsList();
+  updateLabelProgress();
+  document.getElementById('label-feedback').innerHTML = '';
+}
+
+function updateLabelProgress() {
+  const count = Object.keys(labelPlacements).length;
+  document.getElementById('label-progress').textContent = `${count} / 9 labeled`;
+}
+
+// =============================================
+// CHECK LABELS
+// =============================================
+
+function checkLabels() {
+  const zones = ['A','B','C','D','E','F','G','H','I'];
+  const unfilled = zones.filter(z => !labelPlacements[z]);
+
+  if (unfilled.length > 0) {
+    document.getElementById('label-feedback').innerHTML = `
+      <div class="fb-item fb-warn">
+        <div class="fb-label">Incomplete</div>
+        ${unfilled.length} zone(s) not yet labeled: <strong>${unfilled.join(', ')}</strong>. Label all 9 zones before checking.
+      </div>`;
+    return;
+  }
+
+  labelChecked = true;
+  let correct = 0;
+  let html = '';
+
+  const colorMap = { awake: '#c9963a', rem: '#8b2635', n1: '#4a7c94', n2: '#2d6a4f', n3: '#1d3557' };
+
+  zones.forEach(z => {
+    const placed = labelPlacements[z];
+    const isCorrect = placed === stageFeedback[z].correct;
+    if (isCorrect) correct++;
+
+    const cls = isCorrect ? 'fb-correct' : 'fb-wrong';
+    const icon = isCorrect ? '✓' : '✗';
+    const correctName = stageNames[stageFeedback[z].correct];
+    const placedName = stageNames[placed];
+
+    html += `<div class="fb-item ${cls}">
+      <div class="fb-label" style="color:${isCorrect ? 'var(--accent2)' : 'var(--accent)'};">${icon} Zone ${z} — ${zoneDescriptions[z]}</div>
+      ${!isCorrect ? `<div style="margin-bottom:4px;">You chose: <strong style="color:${colorMap[placed]}">${placedName}</strong> → Correct: <strong style="color:${colorMap[stageFeedback[z].correct]}">${correctName}</strong></div>` : ''}
+      <div style="font-size:12px;color:var(--text);line-height:1.5;">${stageFeedback[z].msg}</div>
+    </div>`;
+
+    // Color-code the SVG label
+    const textEl = document.getElementById('label-' + z);
+    if (textEl) {
+      if (isCorrect) {
+        textEl.setAttribute('stroke', '#2d6a4f');
+        textEl.setAttribute('stroke-width', '0.5');
+      } else {
+        textEl.setAttribute('stroke', '#8b2635');
+        textEl.setAttribute('stroke-width', '0.5');
+      }
+    }
+  });
+
+  // Score header
+  const pct = correct / zones.length;
+  const scoreColor = pct === 1 ? 'var(--accent2)' : pct >= 0.7 ? 'var(--gold)' : 'var(--accent)';
+  const msg = pct === 1
+    ? 'Every zone correctly identified. You have a strong working model of the hypnogram — move to Part 2.'
+    : pct >= 0.7
+    ? 'Good overall. Review the missed zones — pay close attention to where deep sleep vs. REM appears across the night.'
+    : 'Several errors. Focus especially on the shift from deep sleep early in the night to longer REM periods late in the night.';
+
+  html = `<div class="score-banner" style="margin-bottom:16px;">
+    <div><div class="score-num" style="color:${scoreColor}">${correct}</div><div class="score-denom">/ ${zones.length}</div></div>
+    <div class="score-msg">${msg}</div>
+  </div>` + html;
+
+  document.getElementById('label-feedback').innerHTML = html;
+  document.getElementById('label-feedback').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetLabels() {
+  labelPlacements = {};
+  labelChecked = false;
+  selectedZone = null;
+
+  const zones = ['A','B','C','D','E','F','G','H','I'];
+  zones.forEach(z => {
+    const textEl = document.getElementById('label-' + z);
+    if (textEl) {
+      textEl.textContent = z;
+      textEl.setAttribute('fill', '#7a6e5f');
+      textEl.style.fontWeight = '400';
+      textEl.removeAttribute('stroke');
+    }
+  });
+
+  document.getElementById('zone-highlight').setAttribute('width', '0');
+  document.getElementById('zone-info-text').textContent = 'Click a labeled zone on the hypnogram, then click a stage below to assign it.';
+  updateAssignmentsList();
+  updateLabelProgress();
+  document.getElementById('label-feedback').innerHTML = '';
+}
+
+// =============================================
+// QUESTIONS
+// =============================================
+
+function selectAnswer(qNum, letter) {
+  if (questionsChecked) return;
+
+  questionAnswers[qNum] = letter;
+
+  // Update button states
+  const qEl = document.getElementById('q' + qNum);
+  qEl.querySelectorAll('.q-btn').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+
+  // Find the clicked button
+  const btns = qEl.querySelectorAll('.q-btn');
+  const letters = ['a','b','c','d'];
+  btns[letters.indexOf(letter)].classList.add('selected');
+}
+
+function checkQuestions() {
+  const total = 8;
+  const unanswered = [];
+  for (let i = 1; i <= total; i++) {
+    if (!questionAnswers[i]) unanswered.push(i);
+  }
+
+  if (unanswered.length > 0) {
+    document.getElementById('q-feedback').innerHTML = `
+      <div class="fb-item fb-warn">
+        <div class="fb-label">Incomplete</div>
+        Question(s) not answered: <strong>${unanswered.join(', ')}</strong>. Answer all questions before checking.
+      </div>`;
+    return;
+  }
+
+  questionsChecked = true;
+  let correct = 0;
+  let html = '';
+
+  for (let i = 1; i <= total; i++) {
+    const chosen = questionAnswers[i];
+    const isCorrect = chosen === correctAnswers[i];
+    if (isCorrect) correct++;
+
+    // Update button display
+    const qEl = document.getElementById('q' + i);
+    const btns = qEl.querySelectorAll('.q-btn');
+    const letters = ['a','b','c','d'];
+    btns.forEach((btn, idx) => {
+      btn.classList.remove('selected');
+      if (letters[idx] === correctAnswers[i]) btn.classList.add('correct');
+      else if (letters[idx] === chosen && !isCorrect) btn.classList.add('wrong');
+    });
+
+    const cls = isCorrect ? 'fb-correct' : 'fb-wrong';
+    const icon = isCorrect ? '✓' : '✗';
+
+    html += `<div class="fb-item ${cls}">
+      <div class="fb-label" style="color:${isCorrect ? 'var(--accent2)' : 'var(--accent)'};">${icon} Question ${i}</div>
+      <div style="font-size:12px;line-height:1.5;">${answerFeedback[i].explanation}</div>
+    </div>`;
+  }
+
+  const pct = correct / total;
+  const scoreColor = pct === 1 ? 'var(--accent2)' : pct >= 0.75 ? 'var(--gold)' : 'var(--accent)';
+  const msg = pct >= 0.875
+    ? 'Strong performance. You understand the key distinctions the AP exam tests on sleep stages — REM rebound, stage characteristics, and what happens across the night.'
+    : pct >= 0.625
+    ? 'Solid foundation. Review the explanations for missed questions — the REM-gets-longer / N3-gets-shorter pattern is the most common misread on the exam.'
+    : 'Review the hypnogram and stage characteristics carefully. Focus on: what distinguishes each stage, what changes across the night, and what happens with sleep deprivation.';
+
+  document.getElementById('q-score-num').textContent = correct;
+  document.getElementById('q-score-num').style.color = scoreColor;
+  document.getElementById('q-score-msg').textContent = msg;
+  document.getElementById('q-score-banner').classList.remove('hidden');
+
+  document.getElementById('q-feedback').innerHTML = html;
+  document.getElementById('q-score-banner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetQuestions() {
+  questionAnswers = {};
+  questionsChecked = false;
+
+  for (let i = 1; i <= 8; i++) {
+    const qEl = document.getElementById('q' + i);
+    qEl.querySelectorAll('.q-btn').forEach(btn => {
+      btn.classList.remove('selected', 'correct', 'wrong');
+    });
+  }
+
+  document.getElementById('q-score-banner').classList.add('hidden');
+  document.getElementById('q-feedback').innerHTML = '';
+}
+</script>
+</body>
+</html>
