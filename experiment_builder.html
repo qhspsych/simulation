@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Psychology — Experiment Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap');
+
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1929;
+    --surface2: #231f3a;
+    --border: #2e2b4a;
+    --accent: #e94560;
+    --accent2: #4ecdc4;
+    --accent3: #ffe66d;
+    --text: #f0eff8;
+    --text-muted: #7b7898;
+    --good: #4ecdc4;
+    --warn: #ffe66d;
+    --bad: #e94560;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%23ffffff08'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    padding: 24px 32px 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1px;
+  }
+
+  h1 span { color: var(--accent2); }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-top: 8px;
+    max-width: 520px;
+  }
+
+  /* Topic selector */
+  .topic-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 10;
+  }
+
+  .topic-bar label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    align-self: center;
+    margin-right: 4px;
+  }
+
+  .topic-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+  }
+
+  .topic-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .topic-btn.active {
+    background: var(--accent2);
+    border-color: var(--accent2);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  /* Main layout */
+  .workspace {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    gap: 0;
+    height: calc(100vh - 160px);
+    position: relative;
+    z-index: 10;
+  }
+
+  /* Panel: Bank */
+  .bank {
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: grab;
+    transition: all 0.15s;
+    font-size: 13px;
+    line-height: 1.4;
+    user-select: none;
+  }
+
+  .card:hover {
+    border-color: var(--accent2);
+    transform: translateX(2px);
+    background: var(--surface2);
+  }
+
+  .card.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+  }
+
+  .card-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 4px;
+  }
+
+  .card.used {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Panel: Design board */
+  .board {
+    padding: 20px 28px;
+    overflow-y: auto;
+  }
+
+  .design-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .drop-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    min-height: 90px;
+    padding: 14px;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .drop-zone.wide {
+    grid-column: span 2;
+  }
+
+  .drop-zone.drag-over {
+    border-color: var(--accent2);
+    background: #1e3a38;
+  }
+
+  .drop-zone.has-card {
+    border-style: solid;
+    border-color: var(--border);
+  }
+
+  .drop-zone.correct {
+    border-color: var(--good);
+    background: #1a2e2d;
+  }
+
+  .drop-zone.incorrect {
+    border-color: var(--bad);
+    background: #2d1a1f;
+  }
+
+  .zone-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .zone-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: 0.7;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .placed-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .placed-card .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: auto;
+    transition: color 0.15s;
+  }
+
+  .placed-card .remove-btn:hover { color: var(--bad); }
+
+  /* Check button */
+  .check-row {
+    margin-top: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .btn-check {
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 28px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+    border-radius: 3px;
+  }
+
+  .btn-check:hover {
+    background: #ff6b82;
+    transform: translateY(-1px);
+  }
+
+  .btn-reset {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 3px;
+  }
+
+  .btn-reset:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+  }
+
+  /* Panel: Feedback */
+  .feedback-panel {
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .feedback-idle {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .feedback-item {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .feedback-item.good {
+    background: #192b2a;
+    border-color: var(--good);
+  }
+
+  .feedback-item.bad {
+    background: #2b1920;
+    border-color: var(--bad);
+  }
+
+  .feedback-item.warn {
+    background: #2b2819;
+    border-color: var(--warn);
+  }
+
+  .feedback-icon {
+    font-size: 16px;
+    margin-right: 6px;
+  }
+
+  .score-display {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    margin: 12px 0;
+  }
+
+  .score-display span {
+    font-size: 16px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* Status indicator */
+  .status-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .dot.filled { background: var(--accent2); }
+  .dot.correct { background: var(--good); }
+  .dot.incorrect { background: var(--bad); }
+
+  /* Empty zone placeholder */
+  .zone-placeholder {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-style: italic;
+    opacity: 0.6;
+    margin-top: 8px;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Result modal overlay */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 36px 40px;
+    max-width: 480px;
+    width: 90%;
+    position: relative;
+  }
+
+  .modal h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .modal-score {
+    font-family: 'Syne', sans-serif;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    margin: 16px 0;
+  }
+
+  .modal-btn {
+    margin-top: 24px;
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s;
+  }
+
+  .modal-btn:hover { background: #ff6b82; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">AP Psychology · Science Practice 2.B</div>
+  <h1>Experiment <span>Builder</span></h1>
+  <p class="subtitle">Design a valid psychology experiment by placing each component correctly. The system will check your design for methodological flaws.</p>
+</header>
+
+<div class="topic-bar">
+  <label>TOPIC:</label>
+  <button class="topic-btn active" onclick="loadTopic('sleep')">Sleep & Memory</button>
+  <button class="topic-btn" onclick="loadTopic('stress')">Stress & Performance</button>
+  <button class="topic-btn" onclick="loadTopic('social')">Social Media & Mood</button>
+  <button class="topic-btn" onclick="loadTopic('exercise')">Exercise & Focus</button>
+</div>
+
+<div class="workspace">
+  <!-- LEFT: Card Bank -->
+  <div class="bank">
+    <div class="panel-title">Card Bank — Drag to Design</div>
+    <div id="card-bank"></div>
+  </div>
+
+  <!-- CENTER: Design Board -->
+  <div class="board">
+    <div class="panel-title" id="board-title">Design Your Experiment</div>
+
+    <div class="design-grid">
+      <div class="drop-zone wide" id="zone-hypothesis" data-zone="hypothesis">
+        <div class="zone-label">
+          Hypothesis
+          <span class="zone-hint">testable prediction</span>
+        </div>
+        <div class="zone-placeholder">Drop a falsifiable hypothesis here</div>
+      </div>
+
+      <div class="drop-zone" id="zone-iv" data-zone="iv">
+        <div class="zone-label">
+          Independent Variable
+          <span class="zone-hint">what you manipulate</span>
+        </div>
+        <div class="zone-placeholder">Drop the IV here</div>
+      </div>
+
+      <div class="drop-zone" id="zone-dv" data-zone="dv">
+        <div class="zone-label">
+          Dependent Variable
+          <span class="zone-hint">what you measure</span>
+        </div>
+        <div class="zone-placeholder">Drop the DV here</div>
+      </div>
+
+      <div class="drop-zone" id="zone-control" data-zone="control">
+        <div class="zone-label">
+          Control Group
+          <span class="zone-hint">no treatment</span>
+        </div>
+        <div class="zone-placeholder">Drop the control condition here</div>
+      </div>
+
+      <div class="drop-zone" id="zone-experimental" data-zone="experimental">
+        <div class="zone-label">
+          Experimental Group
+          <span class="zone-hint">receives treatment</span>
+        </div>
+        <div class="zone-placeholder">Drop the experimental condition here</div>
+      </div>
+
+      <div class="drop-zone wide" id="zone-opdef" data-zone="opdef">
+        <div class="zone-label">
+          Operational Definition of DV
+          <span class="zone-hint">how you measure it</span>
+        </div>
+        <div class="zone-placeholder">Drop how the DV will be measured</div>
+      </div>
+
+      <div class="drop-zone wide" id="zone-random" data-zone="random">
+        <div class="zone-label">
+          Random Assignment Method
+          <span class="zone-hint">how participants are assigned to groups</span>
+        </div>
+        <div class="zone-placeholder">Drop the assignment method here</div>
+      </div>
+    </div>
+
+    <div class="check-row">
+      <button class="btn-check" onclick="checkDesign()">Check My Design →</button>
+      <button class="btn-reset" onclick="resetBoard()">Reset</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: Feedback Panel -->
+  <div class="feedback-panel">
+    <div class="panel-title">Feedback</div>
+    <div id="feedback-content">
+      <p class="feedback-idle">Place cards into the design zones, then click <strong>Check My Design</strong> to get feedback on each component.</p>
+      <br>
+      <p class="feedback-idle" style="font-size:12px;">Tip: Not every card in the bank belongs in a valid experiment — some are flawed components you must avoid.</p>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <div class="panel-title">Progress</div>
+      <div class="status-dots" id="status-dots">
+        <div class="dot" id="dot-hypothesis"></div>
+        <div class="dot" id="dot-iv"></div>
+        <div class="dot" id="dot-dv"></div>
+        <div class="dot" id="dot-control"></div>
+        <div class="dot" id="dot-experimental"></div>
+        <div class="dot" id="dot-opdef"></div>
+        <div class="dot" id="dot-random"></div>
+      </div>
+      <p style="font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace;">7 ZONES TO FILL</p>
+    </div>
+  </div>
+</div>
+
+<!-- Result modal -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">Design Evaluated</h2>
+    <div class="modal-score" id="modal-score"></div>
+    <p id="modal-message" style="font-size: 14px; line-height: 1.6; color: var(--text-muted);"></p>
+    <button class="modal-btn" onclick="closeModal()">Review Feedback →</button>
+  </div>
+</div>
+
+<script>
+// =============================================
+// DATA
+// =============================================
+
+const topics = {
+  sleep: {
+    title: "Topic: How does sleep affect memory?",
+    zones: {
+      hypothesis: {
+        correct: "hyp-sleep-1",
+        options: ["hyp-sleep-1", "hyp-sleep-bad-1", "hyp-sleep-bad-2"]
+      },
+      iv: {
+        correct: "iv-sleep-1",
+        options: ["iv-sleep-1", "iv-sleep-bad-1"]
+      },
+      dv: {
+        correct: "dv-sleep-1",
+        options: ["dv-sleep-1", "dv-sleep-bad-1"]
+      },
+      control: {
+        correct: "ctrl-sleep-1",
+        options: ["ctrl-sleep-1", "ctrl-sleep-bad-1"]
+      },
+      experimental: {
+        correct: "exp-sleep-1",
+        options: ["exp-sleep-1", "exp-sleep-bad-1"]
+      },
+      opdef: {
+        correct: "op-sleep-1",
+        options: ["op-sleep-1", "op-sleep-bad-1"]
+      },
+      random: {
+        correct: "rand-1",
+        options: ["rand-1", "rand-bad-1"]
+      }
+    }
+  },
+  stress: {
+    title: "Topic: How does stress affect test performance?",
+    zones: {
+      hypothesis: {
+        correct: "hyp-stress-1",
+        options: ["hyp-stress-1", "hyp-stress-bad-1", "hyp-stress-bad-2"]
+      },
+      iv: {
+        correct: "iv-stress-1",
+        options: ["iv-stress-1", "iv-stress-bad-1"]
+      },
+      dv: {
+        correct: "dv-stress-1",
+        options: ["dv-stress-1", "dv-stress-bad-1"]
+      },
+      control: {
+        correct: "ctrl-stress-1",
+        options: ["ctrl-stress-1", "ctrl-stress-bad-1"]
+      },
+      experimental: {
+        correct: "exp-stress-1",
+        options: ["exp-stress-1", "exp-stress-bad-1"]
+      },
+      opdef: {
+        correct: "op-stress-1",
+        options: ["op-stress-1", "op-stress-bad-1"]
+      },
+      random: {
+        correct: "rand-1",
+        options: ["rand-1", "rand-bad-1"]
+      }
+    }
+  },
+  social: {
+    title: "Topic: Does social media use affect mood?",
+    zones: {
+      hypothesis: {
+        correct: "hyp-social-1",
+        options: ["hyp-social-1", "hyp-social-bad-1", "hyp-social-bad-2"]
+      },
+      iv: {
+        correct: "iv-social-1",
+        options: ["iv-social-1", "iv-social-bad-1"]
+      },
+      dv: {
+        correct: "dv-social-1",
+        options: ["dv-social-1", "dv-social-bad-1"]
+      },
+      control: {
+        correct: "ctrl-social-1",
+        options: ["ctrl-social-1", "ctrl-social-bad-1"]
+      },
+      experimental: {
+        correct: "exp-social-1",
+        options: ["exp-social-1", "exp-social-bad-1"]
+      },
+      opdef: {
+        correct: "op-social-1",
+        options: ["op-social-1", "op-social-bad-1"]
+      },
+      random: {
+        correct: "rand-1",
+        options: ["rand-1", "rand-bad-1"]
+      }
+    }
+  },
+  exercise: {
+    title: "Topic: Does exercise improve focus?",
+    zones: {
+      hypothesis: {
+        correct: "hyp-ex-1",
+        options: ["hyp-ex-1", "hyp-ex-bad-1", "hyp-ex-bad-2"]
+      },
+      iv: {
+        correct: "iv-ex-1",
+        options: ["iv-ex-1", "iv-ex-bad-1"]
+      },
+      dv: {
+        correct: "dv-ex-1",
+        options: ["dv-ex-1", "dv-ex-bad-1"]
+      },
+      control: {
+        correct: "ctrl-ex-1",
+        options: ["ctrl-ex-1", "ctrl-ex-bad-1"]
+      },
+      experimental: {
+        correct: "exp-ex-1",
+        options: ["exp-ex-1", "exp-ex-bad-1"]
+      },
+      opdef: {
+        correct: "op-ex-1",
+        options: ["op-ex-1", "op-ex-bad-1"]
+      },
+      random: {
+        correct: "rand-1",
+        options: ["rand-1", "rand-bad-1"]
+      }
+    }
+  }
+};
+
+const cards = {
+  // === SLEEP TOPIC ===
+  "hyp-sleep-1": {
+    tag: "Hypothesis",
+    text: "Students who sleep 8+ hours the night before a test will score higher than students who sleep less than 6 hours.",
+    flaw: null
+  },
+  "hyp-sleep-bad-1": {
+    tag: "Hypothesis",
+    text: "Sleep is probably important for memory, but it's hard to say exactly how it works.",
+    flaw: "Not falsifiable — this can't be tested or proved wrong. A hypothesis must be a specific, testable prediction."
+  },
+  "hyp-sleep-bad-2": {
+    tag: "Hypothesis",
+    text: "Students should get more sleep.",
+    flaw: "This is a recommendation, not a falsifiable hypothesis. It makes no testable prediction about an outcome variable."
+  },
+  "iv-sleep-1": {
+    tag: "Independent Variable",
+    text: "Amount of sleep (8+ hours vs. less than 6 hours) the night before the test",
+    flaw: null
+  },
+  "iv-sleep-bad-1": {
+    tag: "Independent Variable",
+    text: "Students' overall academic performance across the semester",
+    flaw: "This is not the manipulated variable — it's an existing characteristic. The IV must be something the researcher actively controls and assigns to participants."
+  },
+  "dv-sleep-1": {
+    tag: "Dependent Variable",
+    text: "Score on a standardized memory test administered the following morning",
+    flaw: null
+  },
+  "dv-sleep-bad-1": {
+    tag: "Dependent Variable",
+    text: "How well-rested each student feels",
+    flaw: "Too vague — this isn't operationally defined. How is 'well-rested' measured? The DV needs to be observable and quantifiable."
+  },
+  "ctrl-sleep-1": {
+    tag: "Control Group",
+    text: "Students assigned to sleep less than 6 hours — normal test-night sleep for many teens",
+    flaw: null
+  },
+  "ctrl-sleep-bad-1": {
+    tag: "Control Group",
+    text: "Students who voluntarily choose not to sleep much",
+    flaw: "Self-selection is not random assignment. Participants must be randomly assigned to conditions, not choose them — otherwise, pre-existing differences between groups confound results."
+  },
+  "exp-sleep-1": {
+    tag: "Experimental Group",
+    text: "Students assigned to sleep 8+ hours (enforced via parental monitoring and wearable tracker)",
+    flaw: null
+  },
+  "exp-sleep-bad-1": {
+    tag: "Experimental Group",
+    text: "Students who say they are good sleepers",
+    flaw: "This group is self-identified — not experimentally assigned. The experimental group must receive the manipulated IV through random assignment."
+  },
+  "op-sleep-1": {
+    tag: "Operational Definition",
+    text: "Memory score = number of correct responses on a 30-item word recall test administered within 30 minutes of waking",
+    flaw: null
+  },
+  "op-sleep-bad-1": {
+    tag: "Operational Definition",
+    text: "Memory will be assessed informally by asking students if they remember what they studied",
+    flaw: "Not replicable — 'informally asking' is not a standardized measure. Operational definitions must specify exactly how the variable is measured so others can replicate the study."
+  },
+
+  // === STRESS TOPIC ===
+  "hyp-stress-1": {
+    tag: "Hypothesis",
+    text: "Students who receive a high-stress prompt before a test will score lower than students given a calm prompt.",
+    flaw: null
+  },
+  "hyp-stress-bad-1": {
+    tag: "Hypothesis",
+    text: "Stress is bad for test scores because students don't perform well when they're nervous.",
+    flaw: "Not falsifiable — this restates common knowledge without a testable prediction. It also doesn't define what 'stressed' and 'not stressed' mean in the study."
+  },
+  "hyp-stress-bad-2": {
+    tag: "Hypothesis",
+    text: "Stress causes poor test performance.",
+    flaw: "Too vague to be falsifiable. What kind of stress? What level? Compared to what condition? A proper hypothesis specifies the IV condition and the expected direction of the effect."
+  },
+  "iv-stress-1": {
+    tag: "Independent Variable",
+    text: "Type of pre-test instruction (stress-inducing message vs. neutral message)",
+    flaw: null
+  },
+  "iv-stress-bad-1": {
+    tag: "Independent Variable",
+    text: "How anxious students naturally feel before tests",
+    flaw: "This is a pre-existing individual trait, not a manipulated variable. The IV must be something the researcher controls and assigns — not a characteristic students bring with them."
+  },
+  "dv-stress-1": {
+    tag: "Dependent Variable",
+    text: "Score on a 20-item math test administered immediately after the stress manipulation",
+    flaw: null
+  },
+  "dv-stress-bad-1": {
+    tag: "Dependent Variable",
+    text: "Whether students feel like they did well on the test",
+    flaw: "Subjective self-report without a standard scale is not operationalized. The DV must be measured with a specific, replicable method."
+  },
+  "ctrl-stress-1": {
+    tag: "Control Group",
+    text: "Students who receive a neutral, non-stress message before the test",
+    flaw: null
+  },
+  "ctrl-stress-bad-1": {
+    tag: "Control Group",
+    text: "Students who take the test at home with no instructions",
+    flaw: "Different testing environments introduce a confounding variable. Both groups must take the test under the same conditions except for the IV."
+  },
+  "exp-stress-1": {
+    tag: "Experimental Group",
+    text: "Students who receive a message saying this test will determine their final grade",
+    flaw: null
+  },
+  "exp-stress-bad-1": {
+    tag: "Experimental Group",
+    text: "Students who report feeling very stressed about school in general",
+    flaw: "Self-selection — these students were not randomly assigned to a condition. Experimental groups must be formed through random assignment."
+  },
+  "op-stress-1": {
+    tag: "Operational Definition",
+    text: "Test performance = total number of correct answers on a standardized 20-item math test (0–20 scale)",
+    flaw: null
+  },
+  "op-stress-bad-1": {
+    tag: "Operational Definition",
+    text: "Stress will be measured by how nervous students look during the test",
+    flaw: "Observer judgment of 'how nervous students look' is not a standardized, replicable measure and introduces observer bias. The DV needs a concrete, consistent measurement instrument."
+  },
+
+  // === SOCIAL MEDIA TOPIC ===
+  "hyp-social-1": {
+    tag: "Hypothesis",
+    text: "Participants who use social media for 2+ hours daily will report lower mood scores than those who use it for 30 minutes or less.",
+    flaw: null
+  },
+  "hyp-social-bad-1": {
+    tag: "Hypothesis",
+    text: "Social media probably isn't great for mood, especially for young people.",
+    flaw: "Not a falsifiable hypothesis — no measurable prediction is made. There's no specified IV condition or expected direction of effect."
+  },
+  "hyp-social-bad-2": {
+    tag: "Hypothesis",
+    text: "Social media hurts mental health.",
+    flaw: "Too broad and not testable as stated. 'Social media' and 'mental health' are not operationally defined, and no comparison condition is specified."
+  },
+  "iv-social-1": {
+    tag: "Independent Variable",
+    text: "Daily social media use time (2+ hours vs. 30 minutes or less)",
+    flaw: null
+  },
+  "iv-social-bad-1": {
+    tag: "Independent Variable",
+    text: "Whether participants already have depression",
+    flaw: "This is a pre-existing condition, not a manipulated variable. The IV must be assigned by the experimenter, not selected based on existing characteristics."
+  },
+  "dv-social-1": {
+    tag: "Dependent Variable",
+    text: "Mood as measured by the PANAS (Positive and Negative Affect Schedule) scale after each day",
+    flaw: null
+  },
+  "dv-social-bad-1": {
+    tag: "Dependent Variable",
+    text: "Whether participants seem happier or sadder at the end of the study",
+    flaw: "Not operationalized — 'seem happier or sadder' is a subjective observer judgment, not a standardized measure. The DV must be defined with a specific, replicable measurement tool."
+  },
+  "ctrl-social-1": {
+    tag: "Control Group",
+    text: "Participants randomly assigned to limit social media use to 30 minutes or less per day",
+    flaw: null
+  },
+  "ctrl-social-bad-1": {
+    tag: "Control Group",
+    text: "Participants who already don't use social media much",
+    flaw: "Self-selection creates a biased comparison group. The control group must be formed by random assignment, not by recruiting people based on pre-existing habits."
+  },
+  "exp-social-1": {
+    tag: "Experimental Group",
+    text: "Participants randomly assigned to use social media for 2+ hours daily for two weeks",
+    flaw: null
+  },
+  "exp-social-bad-1": {
+    tag: "Experimental Group",
+    text: "Heavy social media users who sign up for the 'high use' condition",
+    flaw: "Allowing participants to choose their condition is not random assignment and confounds the results — these participants may differ in important ways from those who choose less use."
+  },
+  "op-social-1": {
+    tag: "Operational Definition",
+    text: "Mood score = total PANAS score (0–50), completed daily at 9 PM; average of 14-day scores used",
+    flaw: null
+  },
+  "op-social-bad-1": {
+    tag: "Operational Definition",
+    text: "Mood will be tracked by having participants post about how they feel",
+    flaw: "Social media posts are not a standardized measure and confound the IV (more posting = more social media use). The operational definition must be independent from the manipulation."
+  },
+
+  // === EXERCISE TOPIC ===
+  "hyp-ex-1": {
+    tag: "Hypothesis",
+    text: "Students who complete 30 minutes of aerobic exercise before class will score higher on a sustained attention task than students who do not exercise.",
+    flaw: null
+  },
+  "hyp-ex-bad-1": {
+    tag: "Hypothesis",
+    text: "Exercise might be related to how focused students are in school.",
+    flaw: "Not falsifiable — 'might be related' is not a specific, testable prediction. A proper hypothesis states a clear expected direction of effect."
+  },
+  "hyp-ex-bad-2": {
+    tag: "Hypothesis",
+    text: "Exercise is good for students.",
+    flaw: "Unfalsifiable and vague — 'good' is not defined, and there's no comparison condition specified. This is a value statement, not a testable prediction."
+  },
+  "iv-ex-1": {
+    tag: "Independent Variable",
+    text: "Pre-class activity (30-min aerobic exercise vs. 30-min seated reading)",
+    flaw: null
+  },
+  "iv-ex-bad-1": {
+    tag: "Independent Variable",
+    text: "Whether students are athletes or non-athletes",
+    flaw: "Athletic status is a pre-existing characteristic, not something the researcher manipulates. The IV must be actively controlled and assigned by the experimenter."
+  },
+  "dv-ex-1": {
+    tag: "Dependent Variable",
+    text: "Score on a sustained attention task (number of correct responses in a 10-minute continuous performance test)",
+    flaw: null
+  },
+  "dv-ex-bad-1": {
+    tag: "Dependent Variable",
+    text: "How focused students appear to the teacher during class",
+    flaw: "Teacher observation is not standardized and introduces observer bias. The DV must be measured with a consistent, replicable instrument."
+  },
+  "ctrl-ex-1": {
+    tag: "Control Group",
+    text: "Students randomly assigned to sit and read quietly for 30 minutes before the attention task",
+    flaw: null
+  },
+  "ctrl-ex-bad-1": {
+    tag: "Control Group",
+    text: "Students who skip the pre-class period entirely and come straight to the test",
+    flaw: "Different time-on-task before the test is a confounding variable. The control group's activity should differ only on the IV (exercise vs. no exercise), not on how they spend the pre-test period."
+  },
+  "exp-ex-1": {
+    tag: "Experimental Group",
+    text: "Students randomly assigned to 30 minutes of aerobic exercise (jogging at moderate pace) before the attention task",
+    flaw: null
+  },
+  "exp-ex-bad-1": {
+    tag: "Experimental Group",
+    text: "Students who volunteer for the exercise group because they enjoy working out",
+    flaw: "Voluntary participation in a condition is not random assignment. Students who enjoy exercise likely differ from those who don't in ways that could affect focus, creating a confound."
+  },
+  "op-ex-1": {
+    tag: "Operational Definition",
+    text: "Focus = number of correct target detections on the 10-minute Conners CPT (Continuous Performance Test) administered immediately after the pre-class activity",
+    flaw: null
+  },
+  "op-ex-bad-1": {
+    tag: "Operational Definition",
+    text: "Focus will be measured by asking students 'Do you feel focused?' on a yes/no scale",
+    flaw: "A single yes/no self-report is not a sensitive enough measure and can't detect degrees of focus. Operational definitions should specify a validated, replicable measurement instrument."
+  },
+
+  // === SHARED ===
+  "rand-1": {
+    tag: "Random Assignment",
+    text: "Participants flip a coin (or are assigned by random number generator) to determine which group they join — independent of any personal characteristic",
+    flaw: null
+  },
+  "rand-bad-1": {
+    tag: "Random Assignment",
+    text: "Participants choose which group they prefer to be in at the start of the study",
+    flaw: "Participant self-selection is NOT random assignment. When participants choose their condition, pre-existing differences between the groups can explain any results — this is a major confound."
+  }
+};
+
+// =============================================
+// STATE
+// =============================================
+
+let currentTopic = 'sleep';
+let placements = {};  // zoneId -> cardId
+let checked = false;
+
+// =============================================
+// INIT
+// =============================================
+
+function loadTopic(topicKey) {
+  currentTopic = topicKey;
+  checked = false;
+  placements = {};
+
+  document.querySelectorAll('.topic-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(topicKey) ||
+      (topicKey === 'sleep' && b.textContent.includes('Sleep')) ||
+      (topicKey === 'stress' && b.textContent.includes('Stress')) ||
+      (topicKey === 'social' && b.textContent.includes('Social')) ||
+      (topicKey === 'exercise' && b.textContent.includes('Exercise')));
+  });
+
+  document.getElementById('board-title').textContent = topics[topicKey].title;
+
+  renderBank();
+  renderAllZones();
+  resetFeedback();
+  updateDots();
+}
+
+function renderBank() {
+  const topic = topics[currentTopic];
+  const allCardIds = new Set();
+  Object.values(topic.zones).forEach(z => z.options.forEach(id => allCardIds.add(id)));
+
+  const placed = new Set(Object.values(placements));
+
+  let html = '';
+  allCardIds.forEach(id => {
+    const card = cards[id];
+    const isUsed = placed.has(id);
+    html += `
+      <div class="card${isUsed ? ' used' : ''}" 
+           id="bankcard-${id}"
+           draggable="${!isUsed}"
+           ondragstart="dragStart(event, '${id}')"
+           ondragend="dragEnd(event)">
+        <div class="card-tag">${card.tag}</div>
+        ${card.text}
+      </div>
+    `;
+  });
+
+  document.getElementById('card-bank').innerHTML = html;
+}
+
+function renderAllZones() {
+  const zoneIds = ['hypothesis', 'iv', 'dv', 'control', 'experimental', 'opdef', 'random'];
+  zoneIds.forEach(renderZone);
+}
+
+function renderZone(zoneId) {
+  const el = document.getElementById('zone-' + zoneId);
+  if (!el) return;
+
+  const placedCardId = placements[zoneId];
+
+  // Clear status classes
+  el.classList.remove('has-card', 'correct', 'incorrect', 'drag-over');
+
+  // Remove old placed card content (leave label)
+  const existingPlaced = el.querySelector('.placed-card');
+  const existingPlaceholder = el.querySelector('.zone-placeholder');
+
+  if (existingPlaced) existingPlaced.remove();
+  if (existingPlaceholder) existingPlaceholder.remove();
+
+  if (placedCardId) {
+    el.classList.add('has-card');
+    const card = cards[placedCardId];
+
+    if (checked) {
+      const topic = topics[currentTopic];
+      const isCorrect = topic.zones[zoneId].correct === placedCardId;
+      el.classList.add(isCorrect ? 'correct' : 'incorrect');
+    }
+
+    const div = document.createElement('div');
+    div.className = 'placed-card';
+    div.innerHTML = `
+      <span>${card.text}</span>
+      <button class="remove-btn" onclick="removeCard('${zoneId}')">×</button>
+    `;
+    el.appendChild(div);
+  } else {
+    const placeholders = {
+      hypothesis: 'Drop a falsifiable hypothesis here',
+      iv: 'Drop the IV here',
+      dv: 'Drop the DV here',
+      control: 'Drop the control condition here',
+      experimental: 'Drop the experimental condition here',
+      opdef: 'Drop how the DV will be measured',
+      random: 'Drop the assignment method here'
+    };
+    const p = document.createElement('div');
+    p.className = 'zone-placeholder';
+    p.textContent = placeholders[zoneId] || 'Drop here';
+    el.appendChild(p);
+  }
+}
+
+// =============================================
+// DRAG & DROP
+// =============================================
+
+let draggingCardId = null;
+
+function dragStart(e, cardId) {
+  draggingCardId = cardId;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const el = document.getElementById('bankcard-' + cardId);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function dragEnd(e) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging'));
+}
+
+// Setup drop zones
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+
+  zone.addEventListener('dragleave', () => {
+    zone.classList.remove('drag-over');
+  });
+
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+
+    if (!draggingCardId) return;
+    const zoneId = zone.dataset.zone;
+
+    // Check if this card is valid for this topic
+    const topic = topics[currentTopic];
+    if (!topic.zones[zoneId].options.includes(draggingCardId)) {
+      // Card doesn't belong to this topic
+      return;
+    }
+
+    // Remove card from any previous zone
+    Object.keys(placements).forEach(z => {
+      if (placements[z] === draggingCardId) delete placements[z];
+    });
+
+    // If zone already has a card, return it to bank (just mark unused)
+    placements[zoneId] = draggingCardId;
+
+    checked = false;
+    renderBank();
+    renderAllZones();
+    updateDots();
+    draggingCardId = null;
+  });
+});
+
+function removeCard(zoneId) {
+  delete placements[zoneId];
+  checked = false;
+  renderBank();
+  renderZone(zoneId);
+  updateDots();
+}
+
+// =============================================
+// CHECK
+// =============================================
+
+function checkDesign() {
+  const zoneIds = ['hypothesis', 'iv', 'dv', 'control', 'experimental', 'opdef', 'random'];
+  const emptyZones = zoneIds.filter(z => !placements[z]);
+
+  if (emptyZones.length > 0) {
+    const feedbackEl = document.getElementById('feedback-content');
+    feedbackEl.innerHTML = `
+      <div class="feedback-item warn">
+        <span class="feedback-icon">⚠</span>
+        <strong>Incomplete design.</strong> You still have ${emptyZones.length} empty zone(s). Fill all 7 zones before checking.
+      </div>
+    `;
+    return;
+  }
+
+  checked = true;
+
+  const topic = topics[currentTopic];
+  let correct = 0;
+  let feedbackHtml = '';
+
+  const zoneLabels = {
+    hypothesis: 'Hypothesis',
+    iv: 'Independent Variable',
+    dv: 'Dependent Variable',
+    control: 'Control Group',
+    experimental: 'Experimental Group',
+    opdef: 'Operational Definition',
+    random: 'Random Assignment'
+  };
+
+  zoneIds.forEach(zoneId => {
+    const placedId = placements[zoneId];
+    const isCorrect = topic.zones[zoneId].correct === placedId;
+    const card = cards[placedId];
+
+    if (isCorrect) {
+      correct++;
+      feedbackHtml += `
+        <div class="feedback-item good">
+          <span class="feedback-icon">✓</span>
+          <strong>${zoneLabels[zoneId]}:</strong> Correct. This is a valid, well-defined component.
+        </div>
+      `;
+    } else {
+      feedbackHtml += `
+        <div class="feedback-item bad">
+          <span class="feedback-icon">✗</span>
+          <strong>${zoneLabels[zoneId]}:</strong> ${card.flaw || 'Incorrect placement.'}
+        </div>
+      `;
+    }
+  });
+
+  document.getElementById('feedback-content').innerHTML = feedbackHtml;
+  renderAllZones();
+  updateDots(true);
+
+  // Show modal for completed designs
+  showModal(correct, zoneIds.length);
+}
+
+function showModal(correct, total) {
+  const pct = correct / total;
+  let title, message, color;
+
+  if (pct === 1) {
+    title = "Flawless Design";
+    message = "Every component is correctly identified and properly defined. This experiment would hold up to methodological scrutiny. Your understanding of Practice 2.B is solid.";
+    color = 'var(--good)';
+  } else if (pct >= 0.7) {
+    title = "Mostly Sound";
+    message = "Good foundation — review the flagged components in the feedback panel. Pay attention to which errors involve random assignment or operational definitions, as these are high-frequency error types on the AP exam.";
+    color = 'var(--warn)';
+  } else {
+    title = "Needs Revision";
+    message = "Several components have methodological problems. Review the feedback panel carefully. Focus especially on the distinction between pre-existing characteristics vs. manipulated variables, and between self-selection vs. random assignment.";
+    color = 'var(--bad)';
+  }
+
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-score').innerHTML = `<span style="color:${color}">${correct}</span><span style="font-size:24px; color:var(--text-muted)">/${total}</span>`;
+  document.getElementById('modal-message').textContent = message;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
+// =============================================
+// RESET
+// =============================================
+
+function resetBoard() {
+  placements = {};
+  checked = false;
+  renderBank();
+  renderAllZones();
+  resetFeedback();
+  updateDots();
+}
+
+function resetFeedback() {
+  document.getElementById('feedback-content').innerHTML = `
+    <p class="feedback-idle">Place cards into the design zones, then click <strong>Check My Design</strong> to get feedback on each component.</p>
+    <br>
+    <p class="feedback-idle" style="font-size:12px;">Tip: Not every card in the bank belongs in a valid experiment — some are flawed components you must avoid.</p>
+  `;
+}
+
+function updateDots(withResults = false) {
+  const zoneIds = ['hypothesis', 'iv', 'dv', 'control', 'experimental', 'opdef', 'random'];
+  const topic = topics[currentTopic];
+
+  zoneIds.forEach(zoneId => {
+    const dot = document.getElementById('dot-' + zoneId);
+    if (!dot) return;
+
+    dot.classList.remove('filled', 'correct', 'incorrect');
+
+    if (placements[zoneId]) {
+      if (withResults) {
+        const isCorrect = topic.zones[zoneId].correct === placements[zoneId];
+        dot.classList.add(isCorrect ? 'correct' : 'incorrect');
+      } else {
+        dot.classList.add('filled');
+      }
+    }
+  });
+}
+
+// =============================================
+// BOOT
+// =============================================
+
+loadTopic('sleep');
+</script>
+</body>
+</html>
