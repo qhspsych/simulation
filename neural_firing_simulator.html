@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Psychology — Neural Firing Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Barlow:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Barlow+Condensed:wght@500;700;900&display=swap');
+
+:root {
+  --bg:       #0a0e1a;
+  --panel:    #111827;
+  --panel2:   #1a2235;
+  --border:   #1e3050;
+  --border2:  #2a4070;
+  --text:     #e2e8f5;
+  --muted:    #5a7099;
+  --dim:      #3a5070;
+
+  /* neuron colors */
+  --resting:  #1a3a5c;
+  --rest-glow:#1e4a7a;
+  --fire:     #00d4ff;
+  --fire-glow:#00aacc;
+  --depol:    #ff6b35;
+  --repol:    #7c4dff;
+  --refractory: #2d1b69;
+
+  /* UI colors */
+  --accent:   #00d4ff;
+  --danger:   #ff4757;
+  --success:  #2ed573;
+  --warn:     #ffa502;
+  --purple:   #7c4dff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scan-line overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.015) 2px, rgba(0,212,255,0.015) 4px);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ============ LAYOUT ============ */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+header {
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  background: linear-gradient(180deg, #0d1525 0%, var(--bg) 100%);
+}
+
+.logo-block { flex: 1; }
+
+.kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(24px, 3.5vw, 40px);
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  line-height: 1;
+}
+
+h1 span { color: var(--accent); }
+
+.header-status {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-pill {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+}
+
+.pill-resting { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
+.pill-firing  { border-color: var(--fire); color: var(--fire); background: rgba(0,212,255,0.2); animation: pulse-pill 0.4s ease infinite alternate; }
+.pill-refractory { border-color: var(--purple); color: var(--purple); background: rgba(124,77,255,0.15); }
+
+@keyframes pulse-pill {
+  from { box-shadow: 0 0 4px var(--fire); }
+  to   { box-shadow: 0 0 12px var(--fire); }
+}
+
+/* ============ MAIN CONTENT ============ */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ============ SIMULATION PANEL ============ */
+.sim-panel {
+  padding: 24px 28px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+/* Neuron diagram */
+.neuron-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px 16px 12px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.neuron-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+#neuron-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Clickable regions */
+.clickable-region {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.clickable-region:hover { opacity: 0.85; }
+
+/* ============ CONTROLS ============ */
+.controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.control-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.ctrl-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ctrl-value {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+  outline: none;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent);
+  transition: box-shadow 0.15s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.slider-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.fire-btn {
+  width: 100%;
+  background: none;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.fire-btn:hover:not(:disabled) {
+  background: rgba(0,212,255,0.1);
+  box-shadow: 0 0 20px rgba(0,212,255,0.3);
+}
+
+.fire-btn:disabled {
+  border-color: var(--dim);
+  color: var(--dim);
+  cursor: not-allowed;
+}
+
+.fire-btn.firing {
+  background: rgba(0,212,255,0.2);
+  box-shadow: 0 0 30px rgba(0,212,255,0.5);
+}
+
+/* ============ VOLTAGE GRAPH ============ */
+.graph-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.graph-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.graph-title .live-val {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+#voltage-canvas {
+  width: 100%;
+  height: 120px;
+  display: block;
+  border-radius: 2px;
+  background: #080d18;
+}
+
+.graph-annotations {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.ann-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.ann-dot {
+  width: 8px; height: 3px;
+  border-radius: 1px;
+}
+
+/* ============ TERM GLOSSARY ============ */
+.terms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.term-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.term-card:hover {
+  border-color: var(--border2);
+  background: var(--panel2);
+}
+
+.term-card.active {
+  border-color: var(--accent);
+  background: rgba(0,212,255,0.06);
+}
+
+.term-card.highlight-depol { border-color: var(--depol); background: rgba(255,107,53,0.08); }
+.term-card.highlight-repol { border-color: var(--purple); background: rgba(124,77,255,0.08); }
+.term-card.highlight-refract { border-color: var(--refractory); background: rgba(45,27,105,0.3); }
+.term-card.highlight-fire { border-color: var(--accent); background: rgba(0,212,255,0.1); }
+
+.term-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.term-def {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ============ RIGHT PANEL ============ */
+.info-panel {
+  background: var(--panel);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.info-section-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Stage indicator */
+.stage-display {
+  margin-bottom: 14px;
+}
+
+.stage-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 4px;
+  transition: color 0.3s;
+}
+
+.stage-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* What's happening explainer */
+.happening-box {
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  min-height: 80px;
+}
+
+.happening-box strong {
+  color: var(--accent);
+}
+
+/* Quiz section */
+.quiz-wrap {
+  padding: 20px;
+  flex: 1;
+}
+
+.quiz-q {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.quiz-q strong {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.quiz-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.quiz-opt {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.12s;
+  line-height: 1.4;
+}
+
+.quiz-opt:hover:not(:disabled) {
+  border-color: var(--border2);
+  background: #222f45;
+}
+
+.quiz-opt.correct {
+  border-color: var(--success);
+  background: rgba(46,213,115,0.1);
+  color: var(--success);
+}
+
+.quiz-opt.wrong {
+  border-color: var(--danger);
+  background: rgba(255,71,87,0.1);
+  color: var(--danger);
+}
+
+.quiz-opt:disabled { cursor: default; }
+
+.quiz-fb {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 2px;
+  margin-bottom: 10px;
+  min-height: 32px;
+}
+
+.quiz-fb.correct-fb { background: rgba(46,213,115,0.08); border: 1px solid var(--success); color: #7ef7b0; }
+.quiz-fb.wrong-fb   { background: rgba(255,71,87,0.08);  border: 1px solid var(--danger);  color: #ff9aa5; }
+
+.quiz-next {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 7px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.12s;
+}
+
+.quiz-next:hover { border-color: var(--accent); color: var(--accent); }
+
+.quiz-score {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 12px;
+  text-align: right;
+}
+
+/* ============ FOOTER ============ */
+footer {
+  padding: 10px 28px;
+  border-top: 1px solid var(--border);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Neuron part labels */
+.part-tooltip {
+  position: absolute;
+  background: rgba(10,14,26,0.95);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+  max-width: 200px;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.hidden { display: none !important; }
+
+/* Ion animation layer */
+.ion-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* All-or-nothing demo */
+.aon-demo {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.aon-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.aon-bars {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+.aon-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.aon-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s, background 0.3s;
+  position: relative;
+}
+
+.aon-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.aon-threshold-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: var(--warn);
+  opacity: 0.7;
+}
+
+.aon-caption {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.aon-caption span {
+  color: var(--warn);
+  font-weight: 600;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="logo-block">
+    <div class="kicker">AP Psychology · Topic 1.3 · The Neuron and Neural Firing</div>
+    <h1>Neural Firing <span>Simulator</span></h1>
+  </div>
+  <div class="header-status">
+    <div class="status-pill pill-resting" id="main-status">RESTING POTENTIAL</div>
+  </div>
+</header>
+
+<div class="main">
+
+<!-- ===== LEFT: SIMULATION ===== -->
+<div class="sim-panel">
+
+  <!-- Neuron diagram -->
+  <div class="neuron-wrap" id="neuron-wrap">
+    <div class="neuron-title">Neuron Anatomy — Hover for Labels · Watch the Impulse Travel</div>
+    <svg id="neuron-svg" viewBox="0 0 780 160" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="glow-cyan">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <filter id="glow-orange">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <radialGradient id="cell-grad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e4a7a"/>
+          <stop offset="100%" stop-color="#0d2a50"/>
+        </radialGradient>
+        <radialGradient id="cell-fire-grad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#004477"/>
+          <stop offset="100%" stop-color="#001133"/>
+        </radialGradient>
+        <linearGradient id="axon-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#0d2a50"/>
+          <stop offset="100%" stop-color="#0a1e3a"/>
+        </linearGradient>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#00d4ff" opacity="0.6"/>
+        </marker>
+      </defs>
+
+      <!-- Background -->
+      <rect width="780" height="160" fill="#080d18" rx="3"/>
+
+      <!-- Grid -->
+      <line x1="0" y1="80" x2="780" y2="80" stroke="#0d1a2e" stroke-width="0.5"/>
+
+      <!-- ===== DENDRITES ===== -->
+      <g id="g-dendrites" class="clickable-region" onmouseover="showPartTip(event,'dendrites')" onmouseout="hidePartTip()">
+        <!-- Main dendrites -->
+        <line x1="110" y1="80" x2="30"  y2="30"  stroke="#1a3a5c" stroke-width="3" stroke-linecap="round"/>
+        <line x1="110" y1="80" x2="20"  y2="60"  stroke="#1a3a5c" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="110" y1="80" x2="25"  y2="100" stroke="#1a3a5c" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="110" y1="80" x2="35"  y2="130" stroke="#1a3a5c" stroke-width="3" stroke-linecap="round"/>
+        <!-- Branch tips -->
+        <line x1="30"  y1="30"  x2="14" y2="16"  stroke="#1a3a5c" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="30"  y1="30"  x2="8"  y2="38"  stroke="#1a3a5c" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="35"  y1="130" x2="16" y2="122" stroke="#1a3a5c" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="35"  y1="130" x2="22" y2="148" stroke="#1a3a5c" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- Receptor dots -->
+        <circle cx="14" cy="16"  r="3" fill="#1a4a7c" id="d1"/>
+        <circle cx="8"  cy="38"  r="3" fill="#1a4a7c" id="d2"/>
+        <circle cx="20" cy="60"  r="3" fill="#1a4a7c" id="d3"/>
+        <circle cx="25" cy="100" r="3" fill="#1a4a7c" id="d4"/>
+        <circle cx="16" cy="122" r="3" fill="#1a4a7c" id="d5"/>
+        <circle cx="22" cy="148" r="3" fill="#1a4a7c" id="d6"/>
+        <!-- Label -->
+        <text x="14" y="8" font-family="Space Mono,monospace" font-size="9" fill="#3a6a9a" letter-spacing="0.5">DENDRITES</text>
+      </g>
+
+      <!-- ===== CELL BODY (Soma) ===== -->
+      <g id="g-soma" class="clickable-region" onmouseover="showPartTip(event,'soma')" onmouseout="hidePartTip()">
+        <ellipse id="soma-body" cx="140" cy="80" rx="32" ry="28" fill="url(#cell-grad)" stroke="#1e4a7a" stroke-width="1.5"/>
+        <!-- Nucleus -->
+        <circle cx="140" cy="80" r="12" fill="#0a1e38" stroke="#1a3a6a" stroke-width="1"/>
+        <circle cx="140" cy="80" r="5"  fill="#1a3a6a" opacity="0.8"/>
+        <text x="140" y="144" text-anchor="middle" font-family="Space Mono,monospace" font-size="9" fill="#3a6a9a" letter-spacing="0.5">CELL BODY</text>
+      </g>
+
+      <!-- ===== AXON HILLOCK ===== -->
+      <g id="g-hillock" class="clickable-region" onmouseover="showPartTip(event,'hillock')" onmouseout="hidePartTip()">
+        <path d="M170 67 Q195 72 210 76" stroke="#1a3a5c" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <path d="M170 93 Q195 88 210 84" stroke="#1a3a5c" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <path id="hillock-glow" d="M170 67 Q195 72 210 76" stroke="transparent" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <path id="hillock-glow2" d="M170 93 Q195 88 210 84" stroke="transparent" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <text x="185" y="105" text-anchor="middle" font-family="Space Mono,monospace" font-size="8" fill="#2a5a8a" letter-spacing="0.5">HILLOCK</text>
+      </g>
+
+      <!-- ===== MYELIN SEGMENTS (axon body) ===== -->
+      <g id="g-myelin" class="clickable-region" onmouseover="showPartTip(event,'myelin')" onmouseout="hidePartTip()">
+        <!-- Axon core -->
+        <rect id="axon-core" x="210" y="74" width="400" height="12" fill="url(#axon-grad)" rx="2"/>
+        <!-- Myelin segments (alternating covered/node) -->
+        <rect x="225" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my1"/>
+        <rect x="290" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my2"/>
+        <rect x="355" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my3"/>
+        <rect x="420" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my4"/>
+        <rect x="485" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my5"/>
+        <rect x="550" y="70" width="48" height="20" rx="10" fill="#0d2a50" stroke="#1a3a5c" stroke-width="1" opacity="0.9" id="my6"/>
+        <!-- Nodes of Ranvier labels -->
+        <text x="278" y="107" text-anchor="middle" font-family="Space Mono,monospace" font-size="7" fill="#2a5a8a">node</text>
+        <text x="343" y="107" text-anchor="middle" font-family="Space Mono,monospace" font-size="7" fill="#2a5a8a">node</text>
+        <text x="408" y="107" text-anchor="middle" font-family="Space Mono,monospace" font-size="7" fill="#2a5a8a">node</text>
+        <text x="473" y="107" text-anchor="middle" font-family="Space Mono,monospace" font-size="7" fill="#2a5a8a">node</text>
+        <text x="538" y="107" text-anchor="middle" font-family="Space Mono,monospace" font-size="7" fill="#2a5a8a">node</text>
+        <text x="390" y="122" text-anchor="middle" font-family="Space Mono,monospace" font-size="9" fill="#3a6a9a" letter-spacing="0.5">AXON + MYELIN SHEATH</text>
+      </g>
+
+      <!-- ===== TERMINAL BUTTONS ===== -->
+      <g id="g-terminal" class="clickable-region" onmouseover="showPartTip(event,'terminal')" onmouseout="hidePartTip()">
+        <!-- Axon branches -->
+        <line x1="610" y1="80" x2="650" y2="50"  stroke="#1a3a5c" stroke-width="4" stroke-linecap="round"/>
+        <line x1="610" y1="80" x2="655" y2="70"  stroke="#1a3a5c" stroke-width="4" stroke-linecap="round"/>
+        <line x1="610" y1="80" x2="655" y2="90"  stroke="#1a3a5c" stroke-width="4" stroke-linecap="round"/>
+        <line x1="610" y1="80" x2="650" y2="112" stroke="#1a3a5c" stroke-width="4" stroke-linecap="round"/>
+        <!-- Terminal buttons -->
+        <circle id="tb1" cx="662" cy="48"  r="9"  fill="#0d2a50" stroke="#1a3a5c" stroke-width="1.5"/>
+        <circle id="tb2" cx="667" cy="68"  r="9"  fill="#0d2a50" stroke="#1a3a5c" stroke-width="1.5"/>
+        <circle id="tb3" cx="667" cy="92"  r="9"  fill="#0d2a50" stroke="#1a3a5c" stroke-width="1.5"/>
+        <circle id="tb4" cx="662" cy="112" r="9"  fill="#0d2a50" stroke="#1a3a5c" stroke-width="1.5"/>
+        <!-- NT dots inside buttons -->
+        <circle cx="659" cy="46"  r="2" fill="#1a4a7c" opacity="0.6"/>
+        <circle cx="664" cy="50"  r="1.5" fill="#1a4a7c" opacity="0.5"/>
+        <circle cx="664" cy="66"  r="2" fill="#1a4a7c" opacity="0.6"/>
+        <circle cx="669" cy="70"  r="1.5" fill="#1a4a7c" opacity="0.5"/>
+        <circle cx="664" cy="90"  r="2" fill="#1a4a7c" opacity="0.6"/>
+        <circle cx="669" cy="94"  r="1.5" fill="#1a4a7c" opacity="0.5"/>
+        <circle cx="659" cy="110" r="2" fill="#1a4a7c" opacity="0.6"/>
+        <circle cx="664" cy="114" r="1.5" fill="#1a4a7c" opacity="0.5"/>
+        <text x="693" y="82" text-anchor="start" font-family="Space Mono,monospace" font-size="9" fill="#3a6a9a" letter-spacing="0.3">AXON</text>
+        <text x="693" y="93" text-anchor="start" font-family="Space Mono,monospace" font-size="9" fill="#3a6a9a" letter-spacing="0.3">TERMINALS</text>
+      </g>
+
+      <!-- ===== SYNAPSE / RECEIVING NEURON stub ===== -->
+      <g id="g-synapse" class="clickable-region" onmouseover="showPartTip(event,'synapse')" onmouseout="hidePartTip()">
+        <!-- Gap lines -->
+        <line x1="680" y1="43"  x2="700" y2="40"  stroke="#1a3a5c" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <line x1="680" y1="67"  x2="700" y2="65"  stroke="#1a3a5c" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <line x1="680" y1="93"  x2="700" y2="93"  stroke="#1a3a5c" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <line x1="680" y1="117" x2="700" y2="120" stroke="#1a3a5c" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <!-- Receptor stubs -->
+        <rect x="700" y="35"  width="14" height="10" rx="2" fill="#0d2540" stroke="#1a3a5c" stroke-width="1"/>
+        <rect x="700" y="60"  width="14" height="10" rx="2" fill="#0d2540" stroke="#1a3a5c" stroke-width="1"/>
+        <rect x="700" y="88"  width="14" height="10" rx="2" fill="#0d2540" stroke="#1a3a5c" stroke-width="1"/>
+        <rect x="700" y="115" width="14" height="10" rx="2" fill="#0d2540" stroke="#1a3a5c" stroke-width="1"/>
+        <text x="722" y="82" text-anchor="start" font-family="Space Mono,monospace" font-size="9" fill="#2a5070" letter-spacing="0.3">SYNAPSE +</text>
+        <text x="722" y="93" text-anchor="start" font-family="Space Mono,monospace" font-size="9" fill="#2a5070" letter-spacing="0.3">RECEPTORS</text>
+      </g>
+
+      <!-- ===== IMPULSE INDICATOR ===== -->
+      <circle id="impulse-dot" cx="-20" cy="80" r="7" fill="#00d4ff" opacity="0" filter="url(#glow-cyan)"/>
+      <circle id="impulse-dot2" cx="-20" cy="80" r="12" fill="rgba(0,212,255,0.2)" opacity="0"/>
+
+    </svg>
+    <div class="part-tooltip" id="part-tooltip"></div>
+  </div>
+
+  <!-- Voltage graph -->
+  <div class="graph-wrap">
+    <div class="graph-title">
+      <span>ACTION POTENTIAL GRAPH — Membrane Voltage Over Time</span>
+      <span class="live-val" id="live-voltage">−70 mV</span>
+    </div>
+    <canvas id="voltage-canvas"></canvas>
+    <div class="graph-annotations">
+      <div class="ann-item"><div class="ann-dot" style="background:#00d4ff"></div>Resting Potential (−70 mV)</div>
+      <div class="ann-item"><div class="ann-dot" style="background:#ffa502"></div>Threshold (−55 mV)</div>
+      <div class="ann-item"><div class="ann-dot" style="background:#ff6b35"></div>Depolarization</div>
+      <div class="ann-item"><div class="ann-dot" style="background:#7c4dff"></div>Repolarization / Refractory</div>
+    </div>
+  </div>
+
+  <!-- Stimulus + fire controls -->
+  <div class="controls-row">
+    <div class="control-card">
+      <div class="ctrl-label">
+        STIMULUS INTENSITY
+        <span class="ctrl-value" id="stim-val">40%</span>
+      </div>
+      <input type="range" class="slider" id="stim-slider" min="0" max="100" value="40"
+             oninput="updateStimulus(this.value)">
+      <div class="slider-sub" id="stim-sub">Below threshold — neuron will <em>not</em> fire. This is the all-or-nothing principle: sub-threshold stimuli produce NO action potential, regardless of size.</div>
+    </div>
+    <div class="control-card">
+      <div class="ctrl-label">
+        STIMULUS COUNT
+        <span class="ctrl-value" id="count-val">0 fired</span>
+      </div>
+      <input type="range" class="slider" id="count-slider" min="1" max="5" value="1"
+             oninput="document.getElementById('count-val').textContent = this.value + ' fired'">
+      <div class="slider-sub">Fire multiple impulses in sequence. Watch how each is <em>identical in size</em> — strength of stimulus never changes the action potential.</div>
+    </div>
+  </div>
+
+  <button class="fire-btn" id="fire-btn" onclick="fireNeuron()">
+    ⚡ STIMULATE NEURON
+  </button>
+
+  <!-- All-or-nothing demo -->
+  <div class="aon-demo">
+    <div class="aon-title">All-or-Nothing Principle — Visual Demo</div>
+    <div id="aon-bars" class="aon-bars"></div>
+    <div class="aon-caption">
+      <span>Threshold = 55%</span> — stimuli below threshold produce NO impulse, no matter how close. Stimuli at or above threshold always fire the same-size action potential. A stronger stimulus does NOT make a bigger impulse.
+    </div>
+  </div>
+
+  <!-- Term cards -->
+  <div class="terms-grid" id="terms-grid"></div>
+
+</div><!-- end sim-panel -->
+
+<!-- ===== RIGHT: INFO + QUIZ ===== -->
+<div class="info-panel">
+  <div class="info-section">
+    <div class="info-section-title">Current State</div>
+    <div class="stage-display">
+      <div class="stage-name" id="stage-name">Resting Potential</div>
+      <div class="stage-desc" id="stage-desc">The neuron is polarized: positive ions outside, negative ions inside the axon. Membrane voltage ≈ −70 mV. The neuron is "loaded" and ready to fire.</div>
+    </div>
+    <div class="happening-box" id="happening-box">
+      <strong>What's happening:</strong> The axon membrane maintains a charge difference (polarization). When stimulated above threshold, this balance is disrupted — triggering an action potential.
+    </div>
+  </div>
+
+  <div class="quiz-wrap">
+    <div class="info-section-title" style="margin-bottom:14px;">AP Exam Check Questions</div>
+    <div id="quiz-container"></div>
+  </div>
+</div>
+
+</div><!-- end main -->
+
+<footer>
+  <span>AP PSYCHOLOGY · TOPIC 1.3 · LO 1.3.B</span>
+  <span>NOTE: Sodium-potassium pump is outside the scope of the AP exam (EK 1.3.B.1 exclusion)</span>
+</footer>
+
+</div><!-- end app -->
+
+<!-- Part tooltip -->
+<div class="part-tooltip" id="part-tooltip" style="position:fixed;"></div>
+
+<script>
+// ============================================
+// DATA
+// ============================================
+
+const partInfo = {
+  dendrites: {
+    name: 'Dendrites',
+    desc: 'Branching extensions that RECEIVE incoming signals (neurotransmitters) from other neurons. Signals travel toward the cell body.'
+  },
+  soma: {
+    name: 'Cell Body (Soma)',
+    desc: 'Contains the nucleus. Integrates incoming signals from dendrites. If total excitation exceeds the threshold at the axon hillock, an action potential is triggered.'
+  },
+  hillock: {
+    name: 'Axon Hillock',
+    desc: 'The "decision zone" — where the cell body meets the axon. This is where threshold is evaluated and the all-or-nothing firing decision is made.'
+  },
+  myelin: {
+    name: 'Axon + Myelin Sheath',
+    desc: 'The axon carries the impulse away from the cell body. The myelin sheath (made of glial cells) insulates the axon and speeds signal transmission via saltatory conduction. Damage to myelin causes multiple sclerosis (MS).'
+  },
+  terminal: {
+    name: 'Axon Terminals (Terminal Buttons)',
+    desc: 'The endpoints of the axon. When the impulse arrives, vesicles release neurotransmitters into the synapse. After release, reuptake may return NTs to the terminal button.'
+  },
+  synapse: {
+    name: 'Synapse + Receptor Sites',
+    desc: 'The tiny gap between the axon terminal of the sending neuron and the dendrite/cell body of the receiving neuron. Neurotransmitters cross this gap and bind to receptor sites, producing excitatory or inhibitory effects.'
+  }
+};
+
+const terms = [
+  {
+    id: 'resting-potential',
+    name: 'Resting Potential',
+    def: 'The state of the neuron when NOT firing. Positive ions outside, negative inside (~−70 mV). The neuron is polarized and "ready."',
+    phase: 'rest'
+  },
+  {
+    id: 'polarization',
+    name: 'Polarization',
+    def: 'The charge difference across the axon membrane at rest: positive ions outside, negative ions inside. Creates the resting potential.',
+    phase: 'rest'
+  },
+  {
+    id: 'threshold',
+    name: 'Threshold',
+    def: 'The minimum level of stimulation required to trigger an action potential (~−55 mV). Below it: no fire. At or above it: full fire.',
+    phase: 'fire'
+  },
+  {
+    id: 'all-or-nothing',
+    name: 'All-or-Nothing Principle',
+    def: 'A neuron either fires completely or not at all. Sub-threshold stimuli = no impulse. Super-threshold stimuli = same-size impulse as threshold. Intensity does NOT affect size.',
+    phase: 'fire'
+  },
+  {
+    id: 'depolarization',
+    name: 'Depolarization',
+    def: 'During the action potential: positive ions rush INTO the axon, making the interior MORE POSITIVE. Voltage spikes from −70 mV to about +40 mV.',
+    phase: 'depol'
+  },
+  {
+    id: 'action-potential',
+    name: 'Action Potential',
+    def: 'The brief electrical charge that travels down the axon. Triggered by depolarization at threshold. Travels in one direction only, from cell body toward terminals.',
+    phase: 'depol'
+  },
+  {
+    id: 'refractory-period',
+    name: 'Refractory Period',
+    def: 'A brief rest period AFTER a neuron fires. The neuron cannot fire again immediately. The membrane is restoring its resting potential (repolarization).',
+    phase: 'refract'
+  },
+  {
+    id: 'reuptake',
+    name: 'Reuptake',
+    def: 'After neurotransmitters cross the synapse, the sending neuron reabsorbs unused NTs back into the axon terminal. SSRIs block serotonin reuptake; cocaine blocks dopamine reuptake.',
+    phase: 'refract'
+  },
+  {
+    id: 'neurotransmitter',
+    name: 'Neurotransmitters',
+    def: 'Chemical messengers released from axon terminals that cross the synapse and bind to receptor sites on the next neuron. Can be excitatory (more likely to fire) or inhibitory (less likely to fire).',
+    phase: 'rest'
+  },
+  {
+    id: 'myelin-ms',
+    name: 'Myelin Sheath / MS',
+    def: 'Glial-cell insulation around the axon that speeds transmission. Destroyed in multiple sclerosis (MS), disrupting neural transmission and causing motor/sensory problems.',
+    phase: 'rest'
+  }
+];
+
+const quizQuestions = [
+  {
+    q: 'A researcher applies a stimulus to a neuron that is 10% below threshold. What happens?',
+    opts: [
+      'A small action potential fires',
+      'No action potential — the all-or-nothing principle means sub-threshold stimuli produce nothing',
+      'A partial depolarization occurs and slowly dissipates',
+      'The neuron enters the refractory period without firing'
+    ],
+    correct: 1,
+    explain: 'The all-or-nothing principle (EK 1.3.B.1): stimuli below threshold produce NO action potential — period. There is no "partial" firing. The neuron only fires when threshold is reached or exceeded.'
+  },
+  {
+    q: 'During the action potential, what is "depolarization"?',
+    opts: [
+      'Positive ions rush OUT of the axon, making the interior more negative',
+      'The neuron returns to its resting state of −70 mV',
+      'Positive ions rush INTO the axon, making the interior more positive',
+      'Neurotransmitters are released into the synapse'
+    ],
+    correct: 2,
+    explain: 'Depolarization: positive ions rush INTO the cell, making the interior MORE POSITIVE (voltage goes from ~−70 mV to ~+40 mV). This is the rising phase of the action potential.'
+  },
+  {
+    q: 'Why can\'t a neuron fire again immediately after it fires?',
+    opts: [
+      'Neurotransmitters are depleted and must be resynthesized',
+      'The refractory period — the neuron is temporarily unable to fire while restoring resting potential',
+      'The myelin sheath becomes temporarily damaged',
+      'The threshold rises permanently after each firing'
+    ],
+    correct: 1,
+    explain: 'The refractory period is the brief rest after firing during which the neuron is restoring its resting potential. This is what limits firing rate and ensures the impulse travels in one direction.'
+  },
+  {
+    q: 'Cocaine produces its effects partly by blocking dopamine reuptake. What does this mean?',
+    opts: [
+      'Cocaine prevents dopamine from being made in the first place',
+      'Cocaine causes dopamine to fire at a higher voltage',
+      'Cocaine prevents the sending neuron from reabsorbing dopamine, so it stays in the synapse longer',
+      'Cocaine destroys the myelin sheath around dopamine-releasing neurons'
+    ],
+    correct: 2,
+    explain: 'Reuptake is the process by which the sending neuron reabsorbs unused neurotransmitters from the synapse. Blocking reuptake keeps dopamine in the synapse longer, prolonging and amplifying its effects — the mechanism underlying cocaine addiction.'
+  },
+  {
+    q: 'Which describes the state of the neuron during "resting potential"?',
+    opts: [
+      'Positive ions inside, negative ions outside — the neuron is depolarized',
+      'Positive ions outside, negative ions inside — the neuron is polarized (~−70 mV)',
+      'No charge difference exists — the membrane is neutral',
+      'The neuron has just fired and is in the refractory period'
+    ],
+    correct: 1,
+    explain: 'At resting potential, the neuron is POLARIZED: positive ions are on the OUTSIDE of the axon membrane, negative ions on the INSIDE. This charge difference (~−70 mV) is the neuron\'s ready-to-fire state.'
+  },
+  {
+    q: 'Multiple sclerosis (MS) involves damage to the myelin sheath. What is the direct consequence?',
+    opts: [
+      'The neuron produces fewer neurotransmitters',
+      'Neural transmission is disrupted — signals slow down or fail to travel properly',
+      'The threshold permanently drops, causing constant firing',
+      'The refractory period becomes permanent'
+    ],
+    correct: 1,
+    explain: 'The myelin sheath insulates the axon and speeds neural transmission. When it is damaged (as in MS), signals slow significantly or fail to transmit properly, causing the motor and sensory disruptions associated with MS.'
+  },
+  {
+    q: 'A stronger stimulus (well above threshold) is applied to a neuron. How does the resulting action potential differ from one produced by a just-threshold stimulus?',
+    opts: [
+      'It is larger and faster — proportional to stimulus strength',
+      'It is identical in size — the all-or-nothing principle means intensity does not change action potential magnitude',
+      'It is slightly larger but the same speed',
+      'It fires twice in rapid succession'
+    ],
+    correct: 1,
+    explain: 'This is the heart of the all-or-nothing principle: once threshold is met, the action potential is always the same size, regardless of how strong the stimulus is. "Louder" stimuli are coded by FREQUENCY of firing (more impulses per second), not impulse size.'
+  },
+  {
+    q: 'Where does the "all-or-nothing" firing decision get made in the neuron?',
+    opts: [
+      'At the dendrites, where signals are first received',
+      'At the axon terminals, just before neurotransmitter release',
+      'At the axon hillock, where the cell body meets the axon',
+      'At the myelin sheath nodes of Ranvier'
+    ],
+    correct: 2,
+    explain: 'The axon hillock is the critical integration zone where the cell body meets the axon. All incoming excitatory and inhibitory signals are summed here. If the total meets or exceeds threshold, an action potential fires — if not, nothing happens.'
+  }
+];
+
+// ============================================
+// STATE
+// ============================================
+
+let simState = 'rest'; // rest | firing | refractory
+let stimLevel = 40;
+let firingCount = 0;
+let animFrame = null;
+let voltageHistory = [];
+let currentVoltage = -70;
+let impulseProgress = 0;
+let isAnimating = false;
+
+const THRESHOLD = 55; // % of slider
+const RESTING_MV = -70;
+const PEAK_MV = 40;
+const CANVAS_W = 600;
+const CANVAS_H = 120;
+
+let quizIndex = 0;
+let quizScore = 0;
+let quizAnswered = false;
+
+// ============================================
+// INIT
+// ============================================
+
+function init() {
+  buildTermCards();
+  buildAONBars();
+  renderQuiz();
+  initCanvas();
+  drawRestingLine();
+}
+
+// ============================================
+// STIMULUS SLIDER
+// ============================================
+
+function updateStimulus(val) {
+  stimLevel = parseInt(val);
+  const pct = stimLevel;
+  const sub = document.getElementById('stim-sub');
+  const valEl = document.getElementById('stim-val');
+  valEl.textContent = pct + '%';
+
+  if (pct < THRESHOLD) {
+    sub.innerHTML = `<strong style="color:var(--warn)">Below threshold (${THRESHOLD}%)</strong> — neuron will <em>NOT</em> fire. The all-or-nothing principle: sub-threshold stimuli produce no impulse regardless of size.`;
+    valEl.style.color = 'var(--warn)';
+  } else {
+    sub.innerHTML = `<strong style="color:var(--success)">At or above threshold (${THRESHOLD}%)</strong> — neuron <em>WILL</em> fire a full action potential. A stronger stimulus does not produce a bigger impulse.`;
+    valEl.style.color = 'var(--success)';
+  }
+
+  updateAONBars();
+}
+
+// ============================================
+// ALL-OR-NOTHING BARS
+// ============================================
+
+function buildAONBars() {
+  const container = document.getElementById('aon-bars');
+  const levels = [20, 35, 48, 54, 55, 65, 80, 95];
+  const maxH = 52;
+
+  levels.forEach((lvl, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'aon-bar-wrap';
+    wrap.style.height = '100%';
+    wrap.style.position = 'relative';
+
+    const thresholdH = (THRESHOLD / 100) * maxH;
+
+    const bar = document.createElement('div');
+    bar.className = 'aon-bar';
+    bar.id = `aon-bar-${i}`;
+    bar.style.height = `${(lvl / 100) * maxH}px`;
+    bar.style.background = lvl >= THRESHOLD ? 'var(--accent)' : 'var(--border2)';
+    bar.style.boxShadow = lvl >= THRESHOLD ? '0 0 8px rgba(0,212,255,0.4)' : 'none';
+    bar.style.width = '100%';
+    bar.style.alignSelf = 'flex-end';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'aon-label';
+    lbl.textContent = lvl + '%';
+
+    // Threshold line on the "container"
+    if (i === 0) {
+      const thLine = document.createElement('div');
+      thLine.style.cssText = `position:absolute;left:0;right:-${levels.length * 100}%;bottom:${thresholdH}px;height:1px;background:rgba(255,165,2,0.5);z-index:5;pointer-events:none;`;
+      wrap.style.position = 'relative';
+    }
+
+    wrap.appendChild(bar);
+    wrap.appendChild(lbl);
+    container.appendChild(wrap);
+  });
+
+  // Threshold label
+  const tl = document.createElement('div');
+  tl.style.cssText = 'position:absolute;right:0;bottom:52px;font-family:Space Mono,monospace;font-size:9px;color:var(--warn);letter-spacing:1px;';
+  tl.textContent = '←THRESHOLD';
+  container.style.position = 'relative';
+}
+
+function updateAONBars() {
+  // highlight current stimulus level bar (closest)
+  const levels = [20, 35, 48, 54, 55, 65, 80, 95];
+  const currentBar = levels.findIndex(l => Math.abs(l - stimLevel) < 8);
+}
+
+// ============================================
+// TERM CARDS
+// ============================================
+
+function buildTermCards() {
+  const grid = document.getElementById('terms-grid');
+  terms.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'term-card';
+    card.id = 'term-' + t.id;
+    card.innerHTML = `<div class="term-name">${t.name}</div><div class="term-def">${t.def}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function highlightTerms(phase) {
+  terms.forEach(t => {
+    const el = document.getElementById('term-' + t.id);
+    if (!el) return;
+    el.classList.remove('highlight-depol', 'highlight-repol', 'highlight-refract', 'highlight-fire', 'active');
+    if (t.phase === phase) {
+      if (phase === 'depol') el.classList.add('highlight-depol');
+      else if (phase === 'refract') el.classList.add('highlight-refract');
+      else if (phase === 'fire') el.classList.add('highlight-fire');
+      else el.classList.add('active');
+    }
+  });
+}
+
+// ============================================
+// NEURON PART TOOLTIP
+// ============================================
+
+function showPartTip(event, partId) {
+  const info = partInfo[partId];
+  const tip = document.getElementById('part-tooltip');
+  tip.innerHTML = `<strong style="color:var(--accent);font-size:12px;">${info.name}</strong><br>${info.desc}`;
+  tip.style.opacity = '1';
+  tip.style.left = (event.clientX + 12) + 'px';
+  tip.style.top  = (event.clientY - 10) + 'px';
+  tip.style.maxWidth = '240px';
+  tip.style.display = 'block';
+}
+
+function hidePartTip() {
+  document.getElementById('part-tooltip').style.opacity = '0';
+}
+
+// ============================================
+// VOLTAGE CANVAS
+// ============================================
+
+function initCanvas() {
+  const canvas = document.getElementById('voltage-canvas');
+  canvas.width = canvas.offsetWidth || 580;
+  canvas.height = CANVAS_H;
+  drawRestingLine();
+}
+
+function drawRestingLine() {
+  const canvas = document.getElementById('voltage-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  ctx.clearRect(0, 0, W, CANVAS_H);
+
+  // Background
+  ctx.fillStyle = '#080d18';
+  ctx.fillRect(0, 0, W, CANVAS_H);
+
+  // Grid lines
+  ctx.strokeStyle = '#0d1a2e';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y < CANVAS_H; y += 20) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Threshold line
+  const thY = voltageToY(-55, CANVAS_H);
+  ctx.strokeStyle = 'rgba(255,165,2,0.4)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(0, thY); ctx.lineTo(W, thY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '9px Space Mono, monospace';
+  ctx.fillStyle = 'rgba(255,165,2,0.6)';
+  ctx.fillText('threshold −55 mV', 4, thY - 3);
+
+  // Resting line label
+  const restY = voltageToY(-70, CANVAS_H);
+  ctx.strokeStyle = 'rgba(0,212,255,0.2)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(0, restY); ctx.lineTo(W, restY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,212,255,0.4)';
+  ctx.fillText('resting −70 mV', 4, restY - 3);
+
+  // Draw history
+  if (voltageHistory.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#00d4ff';
+    ctx.shadowBlur = 4;
+
+    voltageHistory.forEach((mv, i) => {
+      const x = (i / (voltageHistory.length - 1)) * W;
+      const y = voltageToY(mv, CANVAS_H);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Live dot
+    const lastX = W - 2;
+    const lastY = voltageToY(voltageHistory[voltageHistory.length-1], CANVAS_H);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#00d4ff';
+    ctx.shadowColor = '#00d4ff';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  document.getElementById('live-voltage').textContent = Math.round(currentVoltage) + ' mV';
+}
+
+function voltageToY(mv, h) {
+  // Map −80 mV → bottom, +50 mV → top
+  const minMV = -85, maxMV = 55;
+  return h - ((mv - minMV) / (maxMV - minMV)) * h;
+}
+
+// ============================================
+// FIRE NEURON
+// ============================================
+
+function fireNeuron() {
+  if (isAnimating) return;
+
+  if (stimLevel < THRESHOLD) {
+    // Sub-threshold — show brief flicker but NO fire
+    showSubThresholdResponse();
+    return;
+  }
+
+  const count = parseInt(document.getElementById('count-slider').value);
+  fireSequence(count, 0);
+}
+
+function showSubThresholdResponse() {
+  // Brief partial depolarization that doesn't reach threshold
+  updateStageInfo('sub-threshold');
+
+  const voltages = [];
+  const stimReach = RESTING_MV + (stimLevel / THRESHOLD) * (-55 - RESTING_MV) * 0.8;
+
+  // Build sub-threshold voltage curve
+  for (let i = 0; i < 80; i++) {
+    if (i < 15) voltages.push(RESTING_MV + (stimReach - RESTING_MV) * (i/15));
+    else voltages.push(stimReach + (RESTING_MV - stimReach) * ((i-15)/65));
+  }
+
+  animateVoltage(voltages, () => {
+    updateStageInfo('rest');
+  });
+}
+
+function fireSequence(total, current) {
+  if (current >= total) return;
+
+  firingCount++;
+  document.getElementById('count-val').textContent = firingCount + ' fired';
+
+  animateFire(() => {
+    setTimeout(() => fireSequence(total, current + 1), 400);
+  });
+}
+
+function animateFire(onDone) {
+  isAnimating = true;
+  document.getElementById('fire-btn').disabled = true;
+  document.getElementById('fire-btn').classList.add('firing');
+
+  // Build action potential curve
+  const voltages = [];
+  // Phase 1: resting → threshold (brief)
+  for (let i = 0; i < 8; i++) voltages.push(RESTING_MV + ((-55) - RESTING_MV) * (i/8));
+  // Phase 2: depolarization (rapid rise to +40)
+  for (let i = 0; i < 10; i++) voltages.push(-55 + (PEAK_MV - (-55)) * (i/10));
+  // Phase 3: peak hold briefly
+  voltages.push(PEAK_MV);
+  voltages.push(PEAK_MV);
+  // Phase 4: repolarization (rapid fall)
+  for (let i = 0; i < 12; i++) voltages.push(PEAK_MV + ((-75) - PEAK_MV) * (i/12));
+  // Phase 5: hyperpolarization (undershoot)
+  for (let i = 0; i < 8; i++) voltages.push(-75 + (RESTING_MV - (-75)) * (i/8));
+  // Phase 6: refractory (at or near resting)
+  for (let i = 0; i < 20; i++) voltages.push(RESTING_MV);
+
+  // Animate impulse dot on neuron SVG
+  animateImpulseDot();
+
+  // Update status
+  updateStatusPill('firing');
+
+  let vIdx = 0;
+  const phases = [
+    { range: [0, 8],   state: 'threshold' },
+    { range: [8, 20],  state: 'depol' },
+    { range: [20, 22], state: 'peak' },
+    { range: [22, 40], state: 'repol' },
+    { range: [40, 60], state: 'refractory' }
+  ];
+
+  const interval = setInterval(() => {
+    if (vIdx >= voltages.length) {
+      clearInterval(interval);
+      voltageHistory = voltageHistory.concat(voltages);
+      if (voltageHistory.length > 200) voltageHistory = voltageHistory.slice(-200);
+      currentVoltage = RESTING_MV;
+      drawRestingLine();
+
+      isAnimating = false;
+      document.getElementById('fire-btn').disabled = false;
+      document.getElementById('fire-btn').classList.remove('firing');
+      updateStatusPill('rest');
+      updateStageInfo('rest');
+      highlightTerms('rest');
+
+      if (onDone) onDone();
+      return;
+    }
+
+    currentVoltage = voltages[vIdx];
+
+    // Determine phase
+    let phase = 'rest';
+    if (vIdx >= 0 && vIdx < 8) phase = 'threshold';
+    else if (vIdx >= 8 && vIdx < 22) phase = 'depol';
+    else if (vIdx >= 22 && vIdx < 40) {
+      phase = 'repol';
+      updateStatusPill('refractory');
+    }
+    else if (vIdx >= 40) phase = 'refractory';
+
+    if (vIdx === 0) { updateStageInfo('threshold'); highlightTerms('fire'); }
+    if (vIdx === 8) { updateStageInfo('depol');     highlightTerms('depol'); }
+    if (vIdx === 22){ updateStageInfo('repol');     highlightTerms('refract'); }
+    if (vIdx === 40){ updateStageInfo('refractory'); }
+
+    // Push to rolling history for display
+    const displayHistory = [...voltageHistory, ...voltages.slice(0, vIdx+1)];
+    const recent = displayHistory.slice(-150);
+    const tempHistory = voltageHistory.slice(-100).concat(voltages.slice(0, vIdx+1));
+
+    // Draw
+    const canvas = document.getElementById('voltage-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    ctx.clearRect(0, 0, W, CANVAS_H);
+    ctx.fillStyle = '#080d18'; ctx.fillRect(0, 0, W, CANVAS_H);
+
+    // Grid
+    ctx.strokeStyle = '#0d1a2e'; ctx.lineWidth = 0.5;
+    for (let y = 0; y < CANVAS_H; y += 20) {
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    // Threshold line
+    const thY = voltageToY(-55, CANVAS_H);
+    ctx.strokeStyle='rgba(255,165,2,0.4)'; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(0,thY); ctx.lineTo(W,thY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='9px Space Mono,monospace'; ctx.fillStyle='rgba(255,165,2,0.6)';
+    ctx.fillText('threshold −55 mV', 4, thY-3);
+
+    // Full history + current segment
+    const allPts = voltageHistory.slice(-100).concat(voltages.slice(0, vIdx+1));
+    if (allPts.length > 1) {
+      ctx.beginPath();
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 4;
+
+      allPts.forEach((mv, i) => {
+        const x = (i / (allPts.length)) * W;
+        const y = voltageToY(mv, CANVAS_H);
+        // Color by phase
+        const color = mv > -55 ? (mv > 0 ? '#ff6b35' : '#ffa502') : (mv < -70 ? '#7c4dff' : '#00d4ff');
+        ctx.strokeStyle = color;
+        ctx.shadowColor = color;
+        if (i === 0) ctx.moveTo(x, y);
+        else { ctx.lineTo(x, y); }
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    document.getElementById('live-voltage').textContent = Math.round(currentVoltage) + ' mV';
+    vIdx += 2;
+  }, 30);
+}
+
+function animateVoltage(voltages, onDone) {
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= voltages.length) {
+      clearInterval(interval);
+      currentVoltage = RESTING_MV;
+      drawRestingLine();
+      if (onDone) onDone();
+      return;
+    }
+    currentVoltage = voltages[i];
+    document.getElementById('live-voltage').textContent = Math.round(currentVoltage) + ' mV';
+    i += 2;
+  }, 30);
+}
+
+// ============================================
+// IMPULSE DOT ANIMATION
+// ============================================
+
+function animateImpulseDot() {
+  const dot = document.getElementById('impulse-dot');
+  const dot2 = document.getElementById('impulse-dot2');
+
+  // Path: hillock(210,80) → along axon → terminal(610,80)
+  // Then fan out to terminal buttons
+  const pathPoints = [
+    {x:210,y:80}, {x:280,y:80}, {x:350,y:80}, {x:420,y:80}, {x:490,y:80}, {x:560,y:80}, {x:610,y:80},
+    {x:645,y:60}, {x:662,y:48}
+  ];
+
+  let pIdx = 0;
+  dot.setAttribute('opacity', '1');
+  dot2.setAttribute('opacity', '1');
+
+  const move = setInterval(() => {
+    if (pIdx >= pathPoints.length) {
+      clearInterval(move);
+      dot.setAttribute('opacity', '0');
+      dot2.setAttribute('opacity', '0');
+      // Flash terminal buttons
+      flashTerminals();
+      return;
+    }
+    const pt = pathPoints[pIdx];
+    dot.setAttribute('cx', pt.x);
+    dot.setAttribute('cy', pt.y);
+    dot2.setAttribute('cx', pt.x);
+    dot2.setAttribute('cy', pt.y);
+    pIdx++;
+  }, 60);
+}
+
+function flashTerminals() {
+  const tbs = ['tb1','tb2','tb3','tb4'];
+  tbs.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.setAttribute('fill', '#004477');
+      el.setAttribute('stroke', '#00d4ff');
+      el.setAttribute('filter', 'url(#glow-cyan)');
+      setTimeout(() => {
+        el.setAttribute('fill', '#0d2a50');
+        el.setAttribute('stroke', '#1a3a5c');
+        el.removeAttribute('filter');
+      }, 300);
+    }, i * 80);
+  });
+
+  // Briefly light up soma
+  const soma = document.getElementById('soma-body');
+  soma.setAttribute('fill', 'url(#cell-fire-grad)');
+  soma.setAttribute('stroke', '#00d4ff');
+  setTimeout(() => {
+    soma.setAttribute('fill', 'url(#cell-grad)');
+    soma.setAttribute('stroke', '#1e4a7a');
+  }, 400);
+}
+
+// ============================================
+// STATE INFO UPDATES
+// ============================================
+
+function updateStatusPill(state) {
+  const pill = document.getElementById('main-status');
+  pill.className = 'status-pill';
+  if (state === 'firing') {
+    pill.classList.add('pill-firing');
+    pill.textContent = 'ACTION POTENTIAL';
+  } else if (state === 'refractory') {
+    pill.classList.add('pill-refractory');
+    pill.textContent = 'REFRACTORY PERIOD';
+  } else {
+    pill.classList.add('pill-resting');
+    pill.textContent = 'RESTING POTENTIAL';
+  }
+}
+
+const stageInfo = {
+  rest: {
+    name: 'Resting Potential',
+    desc: 'The neuron is polarized: positive ions outside the axon, negative ions inside. Membrane voltage ≈ −70 mV. The neuron is "loaded" and ready.',
+    happening: '<strong>Polarization</strong> is maintained. The neuron is inactive but ready. No action potential occurs until stimulation reaches <strong>threshold</strong> (~−55 mV).'
+  },
+  'sub-threshold': {
+    name: 'Sub-Threshold Response',
+    desc: 'Stimulus received but below threshold. The all-or-nothing principle: nothing happens. No action potential is generated.',
+    happening: '<strong>All-or-nothing principle in action:</strong> the stimulus was too weak to reach threshold. No depolarization wave is initiated. The membrane quickly returns to resting potential.'
+  },
+  threshold: {
+    name: 'Threshold Reached',
+    desc: 'Stimulation has reached the critical level (~−55 mV). The all-or-nothing decision point: the neuron WILL fire.',
+    happening: 'Threshold has been reached at the <strong>axon hillock</strong>. The all-or-nothing principle commits the neuron to a full action potential. There is no partial firing.'
+  },
+  depol: {
+    name: 'Depolarization',
+    desc: 'Positive ions rush INTO the axon. The interior becomes MORE POSITIVE. Voltage spikes from −55 mV to approximately +40 mV.',
+    happening: '<strong>Depolarization:</strong> positive ions flood the interior of the axon, reversing the charge. Voltage shoots from −55 mV to +40 mV. The action potential wave travels down the axon.'
+  },
+  repol: {
+    name: 'Repolarization',
+    desc: 'Positive ions rush back OUT of the axon. The interior becomes more negative again. Voltage falls from +40 mV back toward resting.',
+    happening: 'Repolarization begins — the membrane restores its negative interior. Positive ions exit. The neuron briefly overshoots resting potential (hyperpolarization), making it even harder to fire again.'
+  },
+  refractory: {
+    name: 'Refractory Period',
+    desc: 'The neuron cannot fire again yet. Membrane is restoring resting potential. This enforces one-directional travel and limits firing rate.',
+    happening: '<strong>Refractory period:</strong> the neuron is temporarily unable to fire. This is why the impulse travels in ONE direction (away from the cell body) — the section behind the impulse is always in its refractory period.'
+  }
+};
+
+function updateStageInfo(key) {
+  const info = stageInfo[key] || stageInfo.rest;
+  document.getElementById('stage-name').textContent = info.name;
+  document.getElementById('stage-name').style.color = 
+    key === 'depol' ? 'var(--depol)' :
+    key === 'repol' || key === 'refractory' ? 'var(--purple)' :
+    key === 'threshold' ? 'var(--warn)' :
+    key === 'sub-threshold' ? 'var(--warn)' :
+    'var(--accent)';
+  document.getElementById('stage-desc').textContent = info.desc;
+  document.getElementById('happening-box').innerHTML = info.happening;
+}
+
+// ============================================
+// QUIZ
+// ============================================
+
+function renderQuiz() {
+  if (quizIndex >= quizQuestions.length) {
+    document.getElementById('quiz-container').innerHTML = `
+      <div style="text-align:center;padding:20px 0;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;color:var(--accent);margin-bottom:8px;">${quizScore}/${quizQuestions.length}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Quiz complete. ${quizScore >= 6 ? 'Strong command of the material.' : 'Review the explanations and retry.'}</div>
+        <button class="quiz-next" onclick="restartQuiz()">RESTART QUIZ</button>
+      </div>`;
+    return;
+  }
+
+  const q = quizQuestions[quizIndex];
+  quizAnswered = false;
+
+  let optsHtml = q.opts.map((opt, i) =>
+    `<button class="quiz-opt" id="qopt-${i}" onclick="answerQuiz(${i})">${opt}</button>`
+  ).join('');
+
+  document.getElementById('quiz-container').innerHTML = `
+    <div class="quiz-q">
+      <strong>Q${quizIndex+1} of ${quizQuestions.length}</strong>
+      ${q.q}
+    </div>
+    <div class="quiz-opts">${optsHtml}</div>
+    <div class="quiz-fb" id="quiz-fb"></div>
+    <button class="quiz-next hidden" id="quiz-next-btn" onclick="nextQuiz()">NEXT QUESTION →</button>
+    <div class="quiz-score">Score: ${quizScore}/${quizIndex}</div>
+  `;
+}
+
+function answerQuiz(idx) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+
+  const q = quizQuestions[quizIndex];
+  const fb = document.getElementById('quiz-fb');
+
+  for (let i = 0; i < q.opts.length; i++) {
+    const btn = document.getElementById('qopt-' + i);
+    btn.disabled = true;
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === idx && idx !== q.correct) btn.classList.add('wrong');
+  }
+
+  if (idx === q.correct) {
+    quizScore++;
+    fb.className = 'quiz-fb correct-fb';
+    fb.textContent = '✓ Correct. ' + q.explain;
+  } else {
+    fb.className = 'quiz-fb wrong-fb';
+    fb.textContent = '✗ Incorrect. ' + q.explain;
+  }
+
+  document.getElementById('quiz-next-btn').classList.remove('hidden');
+}
+
+function nextQuiz() {
+  quizIndex++;
+  renderQuiz();
+}
+
+function restartQuiz() {
+  quizIndex = 0;
+  quizScore = 0;
+  quizAnswered = false;
+  renderQuiz();
+}
+
+// ============================================
+// BOOT
+// ============================================
+
+window.addEventListener('load', () => {
+  init();
+  window.addEventListener('resize', initCanvas);
+});
+</script>
+</body>
+</html>
